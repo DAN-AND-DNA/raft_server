@@ -3,8 +3,8 @@
 extern "C" {
 #endif
 
-#include <sync_server/redis/hiredis.h>
-#include <sync_server/redis/async.h>
+#include <raft_server/redis/hiredis.h>
+#include <raft_server/redis/async.h>
 
 #ifdef __cplusplus 
 }
@@ -12,8 +12,8 @@ extern "C" {
 
 
 #include <unistd.h>
-#include <sync_server/eventloop/RedisChannel.h>
-#include <sync_server/SyncServer.h>
+#include <raft_server/eventloop/RedisChannel.h>
+//#include <raft_server/SyncServer.h>
 #include <functional>
 #include <string.h>
 
