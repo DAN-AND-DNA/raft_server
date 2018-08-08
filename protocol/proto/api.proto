@@ -1,0 +1,41 @@
+syntax ="proto3";
+
+package api;
+
+// 257
+message handshake_q
+{
+    uint32 raftport = 1;
+    uint32 httpport = 2;
+    uint32 nodeid = 3;
+}
+
+// 258
+message handshake_r
+{
+    bool result = 1;
+}
+
+message entry
+{
+    uint32 term = 1;
+    uint32 write_it = 2;
+}
+
+// 259
+message appendentries_q
+{
+    uint32 term = 1;         // 当前任期
+    uint32 prelogindex = 2;  // 上个日志索引号 
+    uint32 prelogterm = 3;   // 上个日志的任期
+    uint32 leadercommit = 4; // leader已经提交的日志索引
+
+    repeated entry entries = 5;
+}
+
+// 260
+message appendentries_r
+{
+    uint32 term = 1;
+    bool success = 2;
+}

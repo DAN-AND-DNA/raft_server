@@ -1,0 +1,11 @@
+#! /bin/bash
+
+ROOT=$(cd `dirname $0`; pwd)
+PROTO_ROOT=$ROOT/protocol/proto
+PROTOBUF_ROOT=$ROOT/protocol/deps/protobuf
+
+for file in $PROTO_ROOT/*.proto
+do
+    echo $file
+    $PROTOBUF_ROOT/bin/protoc -I$PROTO_ROOT --cpp_out=$ROOT/protocol $file
+done
