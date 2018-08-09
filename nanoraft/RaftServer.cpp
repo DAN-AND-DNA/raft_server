@@ -8,6 +8,7 @@
 #include <raft_server/net/Conn.h>
 #include <raft_server/leveldb/db.h>
 #include <raft_server/leveldb/comparator.h>
+#include <raft_server/easytimer/Timer.h>
 
 #include <arpa/inet.h>
 #include <errno.h>
@@ -175,6 +176,11 @@ void RaftServer::BecomeFollower()
 
 void RaftServer::Run()
 {
+
+    std::shared_ptr<dan::nanoraft::RaftServer> pst = shared_from_this();
+    std::shared_ptr<dan::timer::Timer> pstTimer(new dan::timer::Timer(10, m_pstEventLoop_, pst));
+    pstTimer->Init();
+
     m_pstServerChannel_->SetReadCallback(std::bind(&RaftServer::TcpAcceptCallback, this));
     m_pstServerChannel_->EnableRead();
 
@@ -251,7 +257,8 @@ void RaftServer::DelLogsFromIndex(uint32_t dwIndex)
     else
     {
         //del logs from index 根据这个结果来更新内存
-        ::leveldb::Iterator* it = m_pstEntriesDB_->NewIterator(::leveldb::ReadOptions());
+        std::unique_ptr<::leveldb::Iterator> it(m_pstEntriesDB_->NewIterator(::leveldb::ReadOptions()));
+        
         for(it->Seek(std::to_string(dwIndex)); it->Valid(); it->Next())
         {
             printf("del k:v = %s:%s\n", it->key().ToString().c_str(), it->value().ToString().c_str());
@@ -259,15 +266,14 @@ void RaftServer::DelLogsFromIndex(uint32_t dwIndex)
 
             stWriteOptions.sync = true;
             m_pstEntriesDB_->Delete(stWriteOptions, it->key());
+            if(!m_stLogs_.empty())
+                m_stLogs_.pop_back();                                       //O(1)
         }
-        delete it;
-
-        //TODO 更新内存
     }
 }
 
 
-void RaftServer::AppendLogs(uint32_t dwIndex, uint32_t dwWriteIt)
+void RaftServer::AppendLog(uint32_t dwIndex, uint32_t dwTerm, uint32_t dwWriteIt)
 {
     //0 1 2 3
     //4  4
@@ -280,9 +286,22 @@ void RaftServer::AppendLogs(uint32_t dwIndex, uint32_t dwWriteIt)
         ::leveldb::WriteOptions stWriteOptions;
         stWriteOptions.sync = true;
         m_pstEntriesDB_->Put(stWriteOptions, std::to_string(dwIndex), std::to_string(dwWriteIt));
-        //TODO 更新内存
+        m_stLogs_.push_back(std::move(std::unique_ptr<RaftLogEntry>(new RaftLogEntry(dwIndex, dwTerm, dwWriteIt))));              //O(1)
     }
 }
+
+
+void RaftServer::BroadCastAppendEntries()
+{
+    for(auto& it : m_stProxys_)
+    {
+        if(it.second->State() == RaftProxyState::InActive)
+            continue;
+      
+        it.second->SendAppendEntries();
+    }
+}
+
 
 
 void RaftServer::TcpAcceptCallback()

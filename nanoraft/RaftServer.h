@@ -66,13 +66,15 @@ public:
     void SetLeader(std::shared_ptr<RaftProxy>& pstProxy){m_pstLeader_ = pstProxy;}
     int LogTermByIndex(uint32_t dwIndex);                                       // 获得指定日志的任期 
     void DelLogsFromIndex(uint32_t dwIndex);                                    // 删除从索引开始之后全部日志
-    void AppendLogs(uint32_t dwIndex, uint32_t dwWriteIt);                     // FIXME 测试用,只是写一个数字 TODO 通用
+    void AppendLog(uint32_t dwIndex, uint32_t dwTerm, uint32_t dwWriteIt);      // FIXME 测试用,只是写一个数字 TODO 通用
+    void SetCommitIndex(uint32_t dwIndex){m_dwCommitIndex_ = dwIndex;}
+    void BroadCastAppendEntries();
 private:
     void TcpAcceptCallback();                                                   // TCP accpet
     void TcpSendAppendEntries();
 
 private:
-    uint32_t                                        m_dwCurrentTerm_;           // 
+    uint32_t                                        m_dwCurrentTerm_;           // 任期从0开始
     uint32_t                                        m_dwVotedFor_;              // 当前任期, 投票给候选人的ID
     uint32_t                                        m_dwCommitIndex_;           // leader已经提交的最大日志序号 (提交即绝大多数的节点已经获得该日志序列号)
     uint32_t                                        m_dwLastApplied_;           // 应用到状态机的最大日志序列号 (本机将日志项应用到状态机)

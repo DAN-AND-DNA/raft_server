@@ -298,7 +298,7 @@ void Conn::SendAppendEntries()
             pstEntry->set_write_it(7);
 
 
-            uint16_t dwMsgID = 258;
+            uint16_t dwMsgID = 259;
             uint32_t dwLen = stMessage.ByteSize();
         
             ::memcpy(OutBufferPtr(OutBufferSize()), reinterpret_cast<uint8_t*>(&dwMsgID), 2);
@@ -445,8 +445,22 @@ void Conn::Server_DelLogsFromIndex(uint32_t dwIndex)
     {
          pstS->DelLogsFromIndex(dwIndex);
     }
+}
 
+void Conn::Server_AppendLog(uint32_t dwIndex, uint32_t dwTerm, uint32_t dwWriteIt)
+{
+    if(auto pstS = m_pstServer_.lock())
+    {
+        pstS->AppendLog(dwIndex, dwTerm, dwWriteIt);
+    }
+}
 
+void Conn::Server_SetCommitIndex(uint32_t dwIndex)
+{
+    if(auto pstS = m_pstServer_.lock())
+    {
+        pstS->SetCommitIndex(dwIndex);
+    }
 }
 
 
