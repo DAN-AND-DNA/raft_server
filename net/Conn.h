@@ -83,6 +83,13 @@ public:
     void Server_DelLogsFromIndex(uint32_t dwIndex);
     void Server_AppendLog(uint32_t dwIndex, uint32_t dwTerm, uint32_t dwWriteIt);
     void Server_SetCommitIndex(uint32_t dwIndex);
+
+
+    void Proxy_SetMatchIndex(uint32_t dwIndex);
+    void Proxy_SetNextIndex(uint32_t dwIndex);
+    void Proxy_IncrMatchIndex();
+    void Proxy_IncrNextIndex();
+
 private:
     void RecvCallback();
 

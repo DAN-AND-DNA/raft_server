@@ -101,6 +101,7 @@ void AppendEntriesQ(std::weak_ptr<dan::net::Conn>& pstConn, std::unique_ptr<goog
     auto p = dynamic_cast<::api::appendentries_q*>(pstMessage.get());
 
     ::api::appendentries_r stMsg;
+           
     stMsg.set_success(false);
     
     if(auto pst = pstConn.lock())
@@ -195,10 +196,38 @@ sendreponse:
 
 void AppendEntriesR(std::weak_ptr<dan::net::Conn>& pstConn, std::unique_ptr<google::protobuf::Message>& pstMessage)
 {
-    auto p = dynamic_cast<::api::appendentries_q*>(pstMessage.get());
+    auto p = dynamic_cast<::api::appendentries_r*>(pstMessage.get());
+    printf("term:%d success:%d\n", p->term(), p->success());
+    
+    if(auto pst = pstConn.lock())
+    {
+        if(pst->Server_CurrentTerm() < p->term())
+        {
+            // 收到的回包中的term 大于当前节点的term
+            pst->Server_SetTerm(p->term());
+            pst->Server_BecomeFollower();
+            return;
+        }
 
-    ::api::appendentries_r stMsg;
-    stMsg.set_success(false);
+
+        if(p->success() != true)
+        {
+            // appendentries失败 减少nextindex重试
+        }
+        else
+        {
+            // 成功了就更新信息
+            pst->Proxy_IncrMatchIndex();
+            pst->Proxy_IncrNextIndex();
+        }
+
+
+
+        
+
+
+
+    }
 }
 
 private:

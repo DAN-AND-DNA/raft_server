@@ -294,8 +294,8 @@ void Conn::SendAppendEntries()
             stMessage.set_prelogindex(static_cast<uint32_t>(pstProxy->NextIndex() - 1));
             stMessage.set_prelogterm(pstServer->PreLogTerm()); 
             stMessage.set_leadercommit(pstServer->CommitIndex());
-            auto pstEntry = stMessage.add_entries();
-            pstEntry->set_write_it(7);
+           // auto pstEntry = stMessage.add_entries();
+           // pstEntry->set_write_it(7);
 
 
             uint16_t dwMsgID = 259;
@@ -462,6 +462,51 @@ void Conn::Server_SetCommitIndex(uint32_t dwIndex)
         pstS->SetCommitIndex(dwIndex);
     }
 }
+
+void Conn::Proxy_SetMatchIndex(uint32_t dwIndex)
+{
+    if(auto pstServer = m_pstServer_.lock())
+    {
+        if(auto pstProxy = m_pstProxy_.lock())
+        {
+            pstProxy->SetMatchIndex(dwIndex);
+        }
+    }
+}
+
+void Conn::Proxy_SetNextIndex(uint32_t dwIndex)
+{
+    if(auto pstServer = m_pstServer_.lock())
+    {
+        if(auto pstProxy = m_pstProxy_.lock())
+        {
+            pstProxy->SetNextIndex(dwIndex);
+        }
+    }
+}
+
+void Conn::Proxy_IncrMatchIndex()
+{
+    if(auto pstServer = m_pstServer_.lock())
+    {
+        if(auto pstProxy = m_pstProxy_.lock())
+        {
+            pstProxy->SetMatchIndex(pstProxy->MatchIndex() + 1);
+        }
+    }
+}
+
+void Conn::Proxy_IncrNextIndex()
+{
+    if(auto pstServer = m_pstServer_.lock())
+    {
+        if(auto pstProxy = m_pstProxy_.lock())
+        {
+            pstProxy->SetNextIndex(pstProxy->NextIndex() + 1);
+        }
+    }
+}
+
 
 
 
