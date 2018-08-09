@@ -1,6 +1,5 @@
 #include <raft_server/nanoraft/RaftProxy.h>
 #include <raft_server/net/Conn.h>
-//#include <nanoraft/RaftMsgs.h>
 
 namespace dan
 {
