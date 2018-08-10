@@ -58,6 +58,7 @@ public:
     void SendAppendEntries();
 
     int ConnFd(){return m_iConnFd_;}
+    std::string ConnHost();
 private:
     RaftProxyRole m_stRole_;                            // 代理的角色: 0领导人 1跟随者 2候选者
     RaftProxyState m_stState_;                          // 代理的状态: 0进行投票 1足够的日志满足投票的要求

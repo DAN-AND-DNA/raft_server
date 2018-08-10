@@ -14,21 +14,38 @@ message handshake_q
 message handshake_r
 {
     bool result = 1;
+    string leaderhost = 2;
+    uint32 leaderraftport = 3;
 }
 
 message entry
 {
-    uint32 term = 1;
-    uint32 write_it = 2;
+    enum entrytype
+    {
+        NORMAL = 0;
+        CFGADD = 1;
+        CFGREM = 2;
+    }
+
+    entrytype type = 1;                 // 日志项的类型
+    uint32 term = 2;                
+   
+    // 如果是配置变化
+    uint32 nodeid = 3;              
+    uint32 port = 4;
+    string host = 5;
+    
+    // 业务
+    uint32 write_it = 6;
 }
 
 // 259
 message appendentries_q
 {
-    uint32 term = 1;         // 当前任期
-    uint32 prelogindex = 2;  // 上个日志索引号 
-    uint32 prelogterm = 3;   // 上个日志的任期
-    uint32 leadercommit = 4; // leader已经提交的日志索引
+    uint32 term = 1;                // 当前任期
+    uint32 prelogindex = 2;         // 上个日志索引号 
+    uint32 prelogterm = 3;          // 上个日志的任期
+    uint32 leadercommit = 4;        // leader已经提交的日志索引
 
     repeated entry entries = 5;
 }
@@ -39,3 +56,23 @@ message appendentries_r
     uint32 term = 1;
     bool success = 2;
 }
+
+// 261
+message requestvote_q
+{
+    uint32 term = 1;
+    uint32 candidateId = 2;         // 自己的节点id
+    uint32 lastLogIndex = 3;
+    uint32 lastLogTerm = 4;
+}
+
+
+// 262
+message requestvote_r
+{
+    uint32 term = 1;                
+    bool votegranted = 2;           // 是否同意   
+}
+
+
+

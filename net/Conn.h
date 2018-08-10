@@ -4,6 +4,7 @@
 #include <vector>
 //#include <raft_server/nanoraft/RaftProxy.h>
 
+
 namespace dan
 {
 
@@ -57,16 +58,15 @@ public:
 
     int Fd(){return m_iFd_;}
 
-    void TryConnect(const char* szAddress, int iPort);
-//    void Clear(){m_stInBuffer_.clear();}
-
-//    int Count(){return static_cast<int>(m_stInBuffer_.size());}
-    void SendAppendEntries();
+    void TryConnect(const char* szAddress, int iPort, int iNodeID, int iRaftPort);
+    void SendAppendEntries(bool bIsHeart = true);                   
 
     void Tie(std::shared_ptr<dan::nanoraft::RaftProxy>& pstProxy){m_pstProxy_ = pstProxy;}
 
     void Tie(uint32_t dwID);    // 绑定到指定的节点ID
 
+    void SetAddr(std::string strAddr){m_strAddr_ = strAddr;}
+    std::string Addr(){return m_strAddr_;}
     void SetRaftPort(int iRaftPort){m_iRaftPort_ = iRaftPort;}
     void SetHttpPort(int iHttpPort){m_iHttpPort_ = iHttpPort;}
     int ProxyConnFd(uint32_t dwID);
@@ -74,6 +74,7 @@ public:
     void Server_CloseConn(int iFd);
     void Server_AddProxy(uint32_t dwID);                    // 添加代理
     bool Server_IsCandidate();
+    bool Server_IsLeader();
     void Server_BecomeFollower();
     uint32_t Server_CurrentTerm();
     void Server_SetTerm(uint32_t dwTerm);
@@ -83,6 +84,8 @@ public:
     void Server_DelLogsFromIndex(uint32_t dwIndex);
     void Server_AppendLog(uint32_t dwIndex, uint32_t dwTerm, uint32_t dwWriteIt);
     void Server_SetCommitIndex(uint32_t dwIndex);
+    void Server_AppendCfgLog(std::string strHost, int iRaftPort, int iNodeId);
+    std::string Server_LeaderHost();
 
 
     void Proxy_SetMatchIndex(uint32_t dwIndex);
@@ -120,7 +123,12 @@ private:
     std::weak_ptr<dan::nanoraft::RaftProxy> m_pstProxy_;
 
     int m_iRaftPort_;
+    std::string m_strAddr_;
     int m_iHttpPort_;
+
+    int m_iJoinPort_;
+    std::string m_strJoinAddr_;
+    int m_iNodeID_;
 };
 
 }

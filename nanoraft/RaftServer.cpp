@@ -10,6 +10,9 @@
 #include <raft_server/leveldb/comparator.h>
 #include <raft_server/easytimer/Timer.h>
 
+#include <raft_server/protocol/api.pb.h>
+#include <google/protobuf/message.h>
+
 #include <arpa/inet.h>
 #include <errno.h>
 #include <sstream>
@@ -33,7 +36,8 @@ RaftServer::RaftServer(dan::eventloop::EventLoop* pstEventLoop) noexcept:
     m_pstEventLoop_(pstEventLoop),
     m_pstServerSocket_(new dan::net::SocketWrapper(dan::net::SocketWrapper::SSOCKET)),
     m_pstServerChannel_(new dan::eventloop::Channel(m_pstServerSocket_->Fd(), pstEventLoop, true)),
-    m_pstStateDB_()
+    m_pstStateDB_(),
+    m_pstCfgLogIndex_(0)
 {}
 
 RaftServer::RaftServer(dan::eventloop::EventLoop* pstEventLoop, const char* szAddress, int iPort) noexcept:
@@ -50,11 +54,14 @@ RaftServer::RaftServer(dan::eventloop::EventLoop* pstEventLoop, const char* szAd
     m_pstEventLoop_(pstEventLoop),
     m_pstServerSocket_(new dan::net::SocketWrapper(dan::net::SocketWrapper::SSOCKET, iPort, szAddress)),
     m_pstServerChannel_(new dan::eventloop::Channel(m_pstServerSocket_->Fd(), pstEventLoop, true)),
-    m_pstStateDB_()
+    m_pstStateDB_(),
+    m_pstCfgLogIndex_(0)
 {
     dan::mod::Mod::LoadMsg();
     
     ::leveldb::Options stOptions;
+    ::leveldb::Options stOptions1;
+
     ::leveldb::DB* pstStateDB;
     ::leveldb::DB* pstEntriesDB;
 
@@ -71,9 +78,12 @@ RaftServer::RaftServer(dan::eventloop::EventLoop* pstEventLoop, const char* szAd
             std::istringstream is1(a.ToString());
             std::istringstream is2(b.ToString());
 
+            printf("-----------------\n");
             is1 >> iIndex1;
             is2 >> iIndex2;
 
+
+            printf("i1:%d  i2:%d\n", iIndex1, iIndex2);
             if(iIndex1 < iIndex2)
                 return -1;
             if(iIndex1 > iIndex2)
@@ -87,9 +97,11 @@ RaftServer::RaftServer(dan::eventloop::EventLoop* pstEventLoop, const char* szAd
     };
 
     stOptions.create_if_missing = true;
+    stOptions1.create_if_missing = true;
+    
     IndexComparator cmp;
     stOptions.comparator = &cmp;
-    stStatus = ::leveldb::DB::Open(stOptions, "./state_db", &pstStateDB);
+    stStatus = ::leveldb::DB::Open(stOptions1, "./state_db", &pstStateDB);
     if(!stStatus.ok())
     {
          printf("RaftServer::RaftServer() error:%s\n", stStatus.ToString().c_str());
@@ -187,13 +199,14 @@ void RaftServer::Run()
     m_pstEventLoop_->Loop();
 }
 
-void RaftServer::ConnectToPeer(const char* szAddress, int iPort)
+void RaftServer::ConnectToPeer(const char* szAddress, int iPort, int iNodeID, int iRaftPort)
 {
     dan::net::SocketWrapper stSocket(dan::net::SocketWrapper::CSOCKET, iPort, szAddress);
     std::shared_ptr<dan::nanoraft::RaftServer> pst = shared_from_this();
     std::shared_ptr<dan::net::Conn> pstConn(new dan::net::Conn(stSocket.Fd(), m_pstEventLoop_, pst));
     pstConn->Init();
-    pstConn->TryConnect(szAddress, iPort);
+    pstConn->TryConnect(szAddress, iPort, iNodeID, iRaftPort);
+    pstConn->SetAddr(szAddress);
 
     m_stConns_[pstConn->Fd()] = pstConn;
     m_pstEventLoop_->Loop();
@@ -285,7 +298,7 @@ void RaftServer::AppendLog(uint32_t dwIndex, uint32_t dwTerm, uint32_t dwWriteIt
     {
         ::leveldb::WriteOptions stWriteOptions;
         stWriteOptions.sync = true;
-        m_pstEntriesDB_->Put(stWriteOptions, std::to_string(dwIndex), std::to_string(dwWriteIt));
+        //m_pstEntriesDB_->Put(stWriteOptions, std::to_string(dwIndex), std::to_string(dwWriteIt));
         m_stLogs_.push_back(std::move(std::unique_ptr<RaftLogEntry>(new RaftLogEntry(dwIndex, dwTerm, dwWriteIt))));              //O(1)
     }
 }
@@ -300,6 +313,58 @@ void RaftServer::BroadCastAppendEntries()
       
         it.second->SendAppendEntries();
     }
+}
+
+void RaftServer::AppendCfgLog(std::string strHost, int iRaftPort, int iNodeID)
+{
+    printf("-------------------1\n");
+    uint32_t dwIndex = static_cast<uint32_t>(m_stEntries_.size());
+   
+    printf("index:%d\n", dwIndex);
+    ::leveldb::WriteOptions stWriteOptions;
+    stWriteOptions.sync = true;
+
+    std::unique_ptr<::api::entry> pstEntry(new ::api::entry());
+
+    pstEntry->set_type(::api::entry::CFGADD);
+    pstEntry->set_term(m_dwCurrentTerm_);
+    pstEntry->set_nodeid(iNodeID);
+    pstEntry->set_port(iRaftPort);
+    pstEntry->set_host(strHost);
+    uint32_t dwLen = pstEntry->ByteSize();
+   
+     printf("-------------------2\n");
+    char* pstBuffer = new char[dwLen]();
+    pstEntry->SerializeToArray(pstBuffer, dwLen);
+
+     printf("-------------------3:%d\n",dwLen);
+
+    ::leveldb::Slice stValues(pstBuffer);
+    printf("is not null\n");
+    ::leveldb::Status stStatus = m_pstEntriesDB_->Put(stWriteOptions, std::to_string(dwIndex), stValues);
+    printf("-------------------4\n");
+    if(stStatus.ok())
+    {
+        m_stEntries_.push_back(std::move(pstEntry));
+    }
+    else
+    {
+        printf("RaftServer::AppendCfgLog error:%s\n", stStatus.ToString().c_str());
+    }
+
+    if(pstBuffer != nullptr)
+    { 
+        delete [] pstBuffer;
+    }
+}
+
+std::string RaftServer::LeaderHost()
+{
+    if(auto pst = m_pstLeader_.lock())
+    {
+        return pst->ConnHost();
+    }
+    return "";
 }
 
 
@@ -331,6 +396,8 @@ void RaftServer::TcpAcceptCallback()
             printf("new peernode addr:%s:%d fd:%d\n", ::inet_ntoa(stClientAddr.sin_addr), ::ntohs(stClientAddr.sin_port), iFd);
             std::shared_ptr<dan::nanoraft::RaftServer> pst = shared_from_this();
             std::shared_ptr<dan::net::Conn> pstConn(new dan::net::Conn(iFd, m_pstEventLoop_, pst));
+            pstConn->SetAddr(::inet_ntoa(stClientAddr.sin_addr));
+
             pstConn->Init();
             m_stConns_[iFd] = pstConn;
         }

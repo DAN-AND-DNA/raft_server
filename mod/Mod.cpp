@@ -41,12 +41,15 @@ void Mod::LoadMsg()
     std::unique_ptr<MessageWrapper> m2(new MessageWrapper(258, "api.handshake_r"));
     std::unique_ptr<MessageWrapper> m3(new MessageWrapper(259, "api.appendentries_q"));
     std::unique_ptr<MessageWrapper> m4(new MessageWrapper(260, "api.appendentries_r"));
-
+    std::unique_ptr<MessageWrapper> m5(new MessageWrapper(261, "api.requestvote_q"));
+    std::unique_ptr<MessageWrapper> m6(new MessageWrapper(262, "api.requestvote_r"));
 
     v->push_back(std::move(m1));
     v->push_back(std::move(m2));
     v->push_back(std::move(m3));
     v->push_back(std::move(m4));
+    v->push_back(std::move(m5));
+    v->push_back(std::move(m6));
 
     s_stMessages.push_back(std::move(v));
 }
@@ -73,72 +76,72 @@ void Mod::HandleArrivedMsg()
 {
     if(auto s_pstsConn = s_pstConn.lock())
     {
-        //TODO 解析缓存
-        if(s_pstsConn->InBufferSize() < 6)
-            return;
-
-
-        uint16_t dwID = *(reinterpret_cast<uint16_t*>(s_pstsConn->InBufferPtr(0)));
-        uint32_t dwLen = *(reinterpret_cast<uint32_t*>(s_pstsConn->InBufferPtr(2)));
-       
-
-       // dwID = 257;
-        int iMainID = (dwID / 256) - 1;
-
-        int dwSubID = (dwID % 256) - 1;
-
-        if(s_pstsConn->InBufferSize() < (static_cast<int>(dwLen) + 6))
-            return;
- struct timeval tv;
-        
-
-
-       
-        //TODO 消耗缓存
-        std::unique_ptr<google::protobuf::Message> pstMessage(((*(s_stMessages[iMainID]))[dwSubID])->NewMessage());
- 
-        ::gettimeofday(&tv, NULL);
-        printf("pars:%ld\n", tv.tv_sec*1000000 + tv.tv_usec);
-
-
-       
-
-        pstMessage ->ParseFromArray(s_pstsConn->InBufferPtr(6), dwLen);
-
-        ::gettimeofday(&tv, NULL);
-        printf("after pars:%ld\n", tv.tv_sec*1000000 + tv.tv_usec);
-
-
-
-        int iLeftSize = s_pstsConn->InBufferSize() - (dwLen + 6);
-        
-        ::memcpy(s_pstsConn->InBufferPtr(0), s_pstsConn->InBufferPtr(dwLen + 6), iLeftSize);
-        s_pstsConn->SetInBufferSize(iLeftSize);
-
-        std::cout<<"in factory ID:"<<dwID<<" len:"<<dwLen<<std::endl;
-        std::cout<<"mainID:"<<iMainID<<" SubID:"<<dwSubID<<std::endl;
-        
-        std::cout<<((*(s_stMessages[iMainID]))[dwSubID])->Name()<<std::endl;
- 
-::gettimeofday(&tv, NULL);
-        printf("befor P:%ld\n", tv.tv_sec*1000000 + tv.tv_usec);
-
-       
-        s_stMods[iMainID]->Proc(s_pstConn, dwSubID, pstMessage);
-
-        if(s_pstsConn->OutBufferSize() > 0)
+        while(true)
         {
-            s_pstsConn->EnableWrite();
-        }
-        else if(s_pstsConn->OutBufferSize() == 0)
-        {
-            std::cout<<"disable\n";
-            s_pstsConn->DisableWrite(); 
-        }
-        
-        ::gettimeofday(&tv, NULL);
-        printf("mod done:%ld\n", tv.tv_sec*1000000 + tv.tv_usec);
+            //TODO 解析缓存
+            if(s_pstsConn->InBufferSize() < 6)
+                return;
 
+
+            uint16_t dwID = *(reinterpret_cast<uint16_t*>(s_pstsConn->InBufferPtr(0)));
+            uint32_t dwLen = *(reinterpret_cast<uint32_t*>(s_pstsConn->InBufferPtr(2)));
+       
+
+            // dwID = 257;
+            int iMainID = (dwID / 256) - 1;
+
+            int dwSubID = (dwID % 256) - 1;
+
+            if(s_pstsConn->InBufferSize() < (static_cast<int>(dwLen) + 6))
+                return;
+            
+            struct timeval tv;
+       
+            //TODO 消耗缓存
+            std::unique_ptr<google::protobuf::Message> pstMessage(((*(s_stMessages[iMainID]))[dwSubID])->NewMessage());
+ 
+            ::gettimeofday(&tv, NULL);
+            printf("pars:%ld\n", tv.tv_sec*1000000 + tv.tv_usec);
+
+
+       
+
+            pstMessage ->ParseFromArray(s_pstsConn->InBufferPtr(6), dwLen);
+
+            ::gettimeofday(&tv, NULL);
+            printf("after pars:%ld\n", tv.tv_sec*1000000 + tv.tv_usec);
+
+
+
+            int iLeftSize = s_pstsConn->InBufferSize() - (dwLen + 6);
+        
+            ::memcpy(s_pstsConn->InBufferPtr(0), s_pstsConn->InBufferPtr(dwLen + 6), iLeftSize);
+            s_pstsConn->SetInBufferSize(iLeftSize);
+
+            std::cout<<"in factory ID:"<<dwID<<" len:"<<dwLen<<std::endl;
+            std::cout<<"mainID:"<<iMainID<<" SubID:"<<dwSubID<<std::endl;
+        
+            std::cout<<((*(s_stMessages[iMainID]))[dwSubID])->Name()<<std::endl;
+ 
+            ::gettimeofday(&tv, NULL);
+            printf("befor P:%ld\n", tv.tv_sec*1000000 + tv.tv_usec);
+
+       
+            s_stMods[iMainID]->Proc(s_pstConn, dwSubID, pstMessage);
+
+            if(s_pstsConn->OutBufferSize() > 0)
+            {
+                s_pstsConn->EnableWrite();
+            }
+            else if(s_pstsConn->OutBufferSize() == 0)
+            {
+                std::cout<<"disable\n";
+                s_pstsConn->DisableWrite(); 
+            }
+        
+            ::gettimeofday(&tv, NULL);
+            printf("mod done:%ld\n", tv.tv_sec*1000000 + tv.tv_usec);
+        }
     }
 }
 

@@ -50,7 +50,8 @@ int main(int argc, char** argv)
                 printf("start server at 127.0.0.1 raft port:%d\n",  iRaftPort);
                 std::shared_ptr<dan::nanoraft::RaftServer> pstRaftServer(new dan::nanoraft::RaftServer(&stEventLoop, "127.0.0.1", iRaftPort));
                 pstRaftServer->BecomeLeader(); 
-
+                pstRaftServer->AppendCfgLog("127.0.0.1", iRaftPort, iNodeID);
+                 pstRaftServer->AppendCfgLog("ip", iRaftPort, iNodeID);
                 pstRaftServer->Run();
             }
 
@@ -65,7 +66,7 @@ int main(int argc, char** argv)
             {
                 printf("join server at %s::%d raft port:%d\n", szAddress, iJoinPort, iRaftPort);
                 std::shared_ptr<dan::nanoraft::RaftServer> pstRaftServer(new dan::nanoraft::RaftServer(&stEventLoop, szAddress, iRaftPort));    
-                pstRaftServer->ConnectToPeer(szAddress, iJoinPort); 
+                pstRaftServer->ConnectToPeer(szAddress, iJoinPort, iNodeID, iRaftPort); 
                // pstRaftServer->Run();
             }
         }

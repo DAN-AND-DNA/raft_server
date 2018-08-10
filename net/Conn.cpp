@@ -35,7 +35,10 @@ Conn::Conn(int iFd, dan::eventloop::EventLoop* pstEventLoop, std::shared_ptr<dan
     m_pstServer_(pstServer),
     m_iInBufferSize_(0),
     m_iOutBufferSize_(0),
-    m_iRaftPort_(0)
+    m_iRaftPort_(0),
+    m_strAddr_(),
+    m_iJoinPort_(0),
+    m_strJoinAddr_()
 {
     m_pstChannel_->SetReadCallback(std::bind(&Conn::RecvCallback, this));
     m_pstChannel_->SetWriteCallback(std::bind(&Conn::SendCallback, this));
@@ -77,10 +80,8 @@ void Conn::DisableWrite()
     m_pstChannel_->DisableWrite();
 }
 
-void Conn::TryConnect(const char* szAddress, int iPort)
+void Conn::TryConnect(const char* szAddress, int iPort, int iNodeID, int iRaftPort)
 {
-
-    //TODO 设置为fd不阻塞
     struct sockaddr_in stClientAddr; 
     ::bzero(&stClientAddr, sizeof(stClientAddr));
 
@@ -89,23 +90,30 @@ void Conn::TryConnect(const char* szAddress, int iPort)
     ::inet_pton(AF_INET, szAddress, &stClientAddr.sin_addr);
 
     ::socklen_t stSocklen = sizeof stClientAddr;
+    
     void* pstTemp = static_cast<void*>(&stClientAddr);
 
     int iOldSet = ::fcntl(m_iFd_, F_GETFL);
     printf("fd:%d\n", m_iFd_);
     ::fcntl(m_iFd_, F_SETFL, iOldSet|O_NONBLOCK);
+
     int iR = ::connect(m_iFd_, static_cast<struct sockaddr*>(pstTemp), stSocklen);
 
     if (iR != 0 && errno == EINPROGRESS)
     {
         // 交给epoll
-         printf("交给epoll进行connect\n");
+        printf("交给epoll进行connect\n");
+        m_iJoinPort_ = iPort;
+        m_strJoinAddr_ = szAddress;
+        m_iNodeID_ = iNodeID;
+        m_iRaftPort_ = iRaftPort;
+
         m_pstChannel_->SetWriteCallback(std::bind(&Conn::AcceptedCallback, this));
         m_pstChannel_->EnableWrite();
-        //m_pstChannel_->EnableRead();
     }
     else if(iR == 0)
     {
+        //TODO 直接连
         printf("直接connect\n");
     }
     else if(iR != 0)
@@ -218,8 +226,8 @@ void Conn::AcceptedCallback()
         ::bzero(&stClientAddr, sizeof(stClientAddr));
 
         stClientAddr.sin_family = AF_INET;
-        stClientAddr.sin_port = ::htons(static_cast<uint16_t>(3777));
-        ::inet_pton(AF_INET, "127.0.0.1", &stClientAddr.sin_addr);
+        stClientAddr.sin_port = ::htons(static_cast<uint16_t>(m_iJoinPort_));
+        ::inet_pton(AF_INET, m_strJoinAddr_.c_str(), &stClientAddr.sin_addr);
 
         ::socklen_t stSocklen = sizeof stClientAddr;
         void* pstTemp = static_cast<void*>(&stClientAddr);
@@ -247,8 +255,8 @@ void Conn::AcceptedCallback()
 void Conn::SendHandShakeQ()
 {
     api::handshake_q stMessage;
-    stMessage.set_raftport(7778);
-    stMessage.set_nodeid(2);
+    stMessage.set_raftport(m_iRaftPort_);
+    stMessage.set_nodeid(m_iNodeID_);
 
     uint16_t dwMsgID = 257;
     uint32_t dwLen = stMessage.ByteSize();
@@ -281,22 +289,35 @@ void Conn::SendHandShakeQ()
     }
 }
 
-void Conn::SendAppendEntries()
+void Conn::SendAppendEntries(bool bIsHeart)
 {
     if(auto pstServer = m_pstServer_.lock())
     {
         if(auto pstProxy = m_pstProxy_.lock())
         {
-
-            // 发送的append消息
+            // 发送的appendentries消息
             api::appendentries_q stMessage;
             stMessage.set_term(pstServer->CurrentTerm());
             stMessage.set_prelogindex(static_cast<uint32_t>(pstProxy->NextIndex() - 1));
             stMessage.set_prelogterm(pstServer->PreLogTerm()); 
             stMessage.set_leadercommit(pstServer->CommitIndex());
-           // auto pstEntry = stMessage.add_entries();
-           // pstEntry->set_write_it(7);
-
+           
+            if(bIsHeart == false)
+            {
+              //  auto pstEntry = stMessage.add_entries();
+                //pstEntry->set_type(api::entry::entrytype::CFGADD);
+                //pstEntry->set_nodeid();
+                //pstEntry->set_port();
+                //pstEntry->set_addr();
+            }
+            else
+            {
+                
+            }
+            //auto pstEntry = stMessage.add_entries();
+            
+            //pstEntry->set_write_it(7);
+           
 
             uint16_t dwMsgID = 259;
             uint32_t dwLen = stMessage.ByteSize();
@@ -375,11 +396,22 @@ void Conn::Server_AddProxy(uint32_t dwID)
     }
 
 }
+
 bool Conn::Server_IsCandidate()
 {
     if(auto pstS = m_pstServer_.lock())
     {
         return pstS->Role() == dan::nanoraft::RaftProxyRole::Candidate;
+    }
+    return false;
+}
+
+
+bool Conn::Server_IsLeader()
+{
+    if(auto pstS = m_pstServer_.lock())
+    {
+        return pstS->Role() == dan::nanoraft::RaftProxyRole::Leader;
     }
     return false;
 }
@@ -462,6 +494,26 @@ void Conn::Server_SetCommitIndex(uint32_t dwIndex)
         pstS->SetCommitIndex(dwIndex);
     }
 }
+
+void Conn::Server_AppendCfgLog(std::string strHost, int iRaftPort, int iNodeId)
+{
+    if(auto pstS = m_pstServer_.lock())
+    {
+        pstS->AppendCfgLog(strHost, iRaftPort, iNodeId);
+    }
+}
+
+std::string Conn::Server_LeaderHost()
+{
+    if(auto pstS = m_pstServer_.lock())
+    {
+        return pstS->LeaderHost();
+    }
+    return "";
+}
+
+
+
 
 void Conn::Proxy_SetMatchIndex(uint32_t dwIndex)
 {

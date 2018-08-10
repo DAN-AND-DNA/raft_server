@@ -28,6 +28,15 @@ void RaftProxy::SendAppendEntries()
     }
 }
 
+std::string RaftProxy::ConnHost()
+{
+    if(auto pstConn = m_pstConn_.lock())
+    {
+        return pstConn->Addr();
+    }
+    return "";
+}
+
 
 
 }

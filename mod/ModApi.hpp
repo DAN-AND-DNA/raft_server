@@ -24,6 +24,7 @@ public:
         m_stProcs_.push_back(std::move(std::bind(&ModApi::HandshakeR, this, std::placeholders::_1, std::placeholders::_2)));
         m_stProcs_.push_back(std::move(std::bind(&ModApi::AppendEntriesQ, this, std::placeholders::_1, std::placeholders::_2)));
         m_stProcs_.push_back(std::move(std::bind(&ModApi::AppendEntriesR, this, std::placeholders::_1, std::placeholders::_2))); 
+        m_stProcs_.push_back(std::move(std::bind(&ModApi::RequestVoteQ, this, std::placeholders::_1, std::placeholders::_2)));
     }
 
     void Proc(std::weak_ptr<dan::net::Conn>& pstConn, int iID, std::unique_ptr<google::protobuf::Message>& pstMessage)
@@ -38,22 +39,33 @@ private:
 // TODO 2. 实现消息
 void HandshakeQ(std::weak_ptr<dan::net::Conn>& pstConn, std::unique_ptr<google::protobuf::Message>& pstMessage)
 {
-               struct timeval tv;
-        ::gettimeofday(&tv, NULL);
-        printf("in Api:%ld\n", tv.tv_sec*1000000 + tv.tv_usec);
-
-
+        
         auto p = dynamic_cast<api::handshake_q*>(pstMessage.get());
         std::cout<<"handshake get peer nodeid:"<<p->nodeid()<<" port:"<<p->raftport()<<std::endl;
 
+        api::handshake_r stMsg;
+        stMsg.set_result(false);
 
         //TODO 更替连接
         if(auto pst = pstConn.lock())
         {
-            pst->SetRaftPort(p->raftport());
-            pst->SetHttpPort(p->httpport());
 
-            int iOldConnFd = pst->ProxyConnFd(static_cast<uint32_t>(p->nodeid()));
+            int iOldConnFd = -1;
+            if(pst->Server_IsLeader() == false)
+            {
+                //TODO 本机不是leader  把leader信息回包给他
+               
+                 stMsg.set_result(false);
+                // stMsg.set_leaderhost();
+                // stMsg.set_leaderraftport();
+                 goto sendreponse;
+            }
+
+            pst->SetRaftPort(p->raftport());
+            //pst->SetHttpPort(p->httpport());
+
+            iOldConnFd = pst->ProxyConnFd(static_cast<uint32_t>(p->nodeid()));
+           
             if(iOldConnFd != -1)
             {
                 // TODO 之前就存在该代理 干掉那个老的conn 替换本conn
@@ -67,24 +79,19 @@ void HandshakeQ(std::weak_ptr<dan::net::Conn>& pstConn, std::unique_ptr<google::
                 // TODO 新的节点配置
                 pst->Server_AddProxy(p->nodeid());
                 pst->Tie(p->nodeid());
+            //    pst->Server_AppendCfgLog("ip", p->raftport(), p->nodeid());             // 广播配置给节点们
             }
 
-            pst->SetRaftPort(p->raftport());
-            pst->SetHttpPort(p->httpport());
+            stMsg.set_result(true);
+
+sendreponse:
+            HandlePreSendMsg(pstConn, 258, std::move(stMsg));
         }
-
-        api::handshake_r stMsg;
-        stMsg.set_result(true);
-
-        HandlePreSendMsg(pstConn, 258, std::move(stMsg));
-        
-        ::gettimeofday(&tv, NULL);
-        printf("in Api done:%ld\n", tv.tv_sec*1000000 + tv.tv_usec);
 }
 
 void HandshakeR(std::weak_ptr<dan::net::Conn>& pstConn, std::unique_ptr<google::protobuf::Message>& pstMessage)
 {
-               struct timeval tv;
+        struct timeval tv;
         ::gettimeofday(&tv, NULL);
         printf("in Api:%ld\n", tv.tv_sec*1000000 + tv.tv_usec);
 
@@ -101,40 +108,33 @@ void AppendEntriesQ(std::weak_ptr<dan::net::Conn>& pstConn, std::unique_ptr<goog
     auto p = dynamic_cast<::api::appendentries_q*>(pstMessage.get());
 
     ::api::appendentries_r stMsg;
-           
     stMsg.set_success(false);
     
     if(auto pst = pstConn.lock())
     {
-
-        // 处理心跳消息
-        if(p->entries_size() == 0)
-        {
-            //TODO 刷新过期时间
-            stMsg.set_success(true);
-            goto sendreponse;
-        }
-
-        // 处理日志消息
+        //1 检查任期
         if(pst->Server_IsCandidate() == true && pst->Server_CurrentTerm() == p->term())
         {
-            // 1. 如果服务器是candidate 收到appenentries消息就成为follower 放弃选举
+            // 1.1 如果服务器是candidate 收到appenentries消息就成为follower 放弃选举
             pst->Server_BecomeFollower();
         }
         else if(pst->Server_CurrentTerm() < p->term())
         {
-            // 2. 设置并持久化term
+            // 1.2 设置并持久化term
             pst->Server_SetTerm(p->term());
             pst->Server_BecomeFollower();
-            pst->Server_SetLeader();                // 和这个conn绑定的proxy作为leader
         }
         else if(pst->Server_CurrentTerm() > p->term())
         {
+            // 1.3
             stMsg.set_success(false);
             goto sendreponse;                       // 通知leader变成follower
         }
 
-        // 如果是第一次收到appendentries, 即p->prelogindex() == 0 (节点的初始都为0) 
+        pst->Server_SetLeader();                    // 和这个conn绑定的proxy作为leader
+
+        printf("leader ip:%s\n", pst->Server_LeaderHost().c_str());
+        //不是第一次收到appendentries 如果是第一次收到appendentries, 即p->prelogindex() == 0 (节点的初始都为0) 
         if(0 < p->prelogindex())
         {
             int iPrevTerm = pst->Server_LogTermByIndex(p->prelogindex());
@@ -153,13 +153,23 @@ void AppendEntriesQ(std::weak_ptr<dan::net::Conn>& pstConn, std::unique_ptr<goog
             }
         }
 
+
+        // 2 处理心跳消息
+        if(p->entries_size() == 0)
+        {
+            //TODO 刷新过期时间
+            stMsg.set_success(true);
+            goto sendreponse;
+        }
+
+
         
         // 3. 解决日志冲突
         int i;
         uint32_t dwNewIndex;
         for(i = 0 ; i < p->entries_size(); ++i)
         {
-            dwNewIndex = p->prelogindex() + 1 + i;                // 新的索引号
+            dwNewIndex = p->prelogindex() + 1 + i;                         // 新的索引号
             int iExistingTerm = pst->Server_LogTermByIndex(dwNewIndex);    // 是否这个新索引号已经有entry
         
             if(iExistingTerm != -1 && iExistingTerm != static_cast<int32_t>((p->entries(i)).term()) && pst->Server_CommitIndex() < dwNewIndex)
@@ -220,15 +230,20 @@ void AppendEntriesR(std::weak_ptr<dan::net::Conn>& pstConn, std::unique_ptr<goog
             pst->Proxy_IncrMatchIndex();
             pst->Proxy_IncrNextIndex();
         }
+    }
+}
 
 
-
-        
-
-
+void RequestVoteQ(std::weak_ptr<dan::net::Conn>& pstConn, std::unique_ptr<google::protobuf::Message>& pstMessage)
+{
+   // auto p = dynamic_cast<::api::requestvote_q*>(pstMessage.get());
+    
+    if(auto pst = pstConn.lock())
+    {
 
     }
 }
+
 
 private:
     typedef std::function<void(std::weak_ptr<dan::net::Conn>& ,std::unique_ptr<google::protobuf::Message>&)> TProc;

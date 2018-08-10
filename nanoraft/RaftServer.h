@@ -6,6 +6,12 @@
 #include <deque>
 #include <functional>
 
+
+namespace api
+{
+class entry;
+}
+
 namespace leveldb
 {
 class DB;
@@ -38,6 +44,8 @@ class RaftProxy;
 class RaftLogEntry;
 typedef std::function<void()> TRaftCallback;
 
+
+
 // raft 服务器实体 每个线程一个
 class RaftServer: public std::enable_shared_from_this<RaftServer>
 {
@@ -55,7 +63,7 @@ public:
     void BecomeFollower();
 
     void Run();
-    void ConnectToPeer(const char* szAddress, int iPort);
+    void ConnectToPeer(const char* szAddress, int iPort, int iNodeID, int iRaftPort);
     void OfflineConn(int iFd);
 
     void SetAndPersistTerm(uint32_t dwTerm);                                    // 修改当前任期和固化
@@ -67,8 +75,12 @@ public:
     int LogTermByIndex(uint32_t dwIndex);                                       // 获得指定日志的任期 
     void DelLogsFromIndex(uint32_t dwIndex);                                    // 删除从索引开始之后全部日志
     void AppendLog(uint32_t dwIndex, uint32_t dwTerm, uint32_t dwWriteIt);      // FIXME 测试用,只是写一个数字 TODO 通用
+    
     void SetCommitIndex(uint32_t dwIndex){m_dwCommitIndex_ = dwIndex;}
     void BroadCastAppendEntries();
+    
+    void AppendCfgLog(std::string strHost, int iRaftPort, int iNodeID);         // 添加cfg日志
+    std::string LeaderHost();
 private:
     void TcpAcceptCallback();                                                   // TCP accpet
     void TcpSendAppendEntries();
@@ -83,7 +95,9 @@ private:
 
     std::weak_ptr<RaftProxy>                        m_pstLeader_;               // leader所对应的代理
     std::map<uint32_t, std::shared_ptr<RaftProxy>>  m_stProxys_;                // 集群中其他节点的代理
-    std::deque<std::unique_ptr<RaftLogEntry>>       m_stLogs_;                  // 日志
+    std::deque<std::unique_ptr<RaftLogEntry>>       m_stLogs_;                  // FIXME 废弃 日志
+    
+    std::deque<std::unique_ptr<api::entry>>         m_stEntries_;               // 
     std::map<int, std::shared_ptr<dan::net::Conn>>  m_stConns_;                 // 注册的连接
 
     dan::eventloop::EventLoop*                      m_pstEventLoop_;            // 事件循环
@@ -92,6 +106,7 @@ private:
 
     std::unique_ptr<::leveldb::DB>                  m_pstStateDB_;              // 状态db
     std::unique_ptr<::leveldb::DB>                  m_pstEntriesDB_;            // 日志项db
+    uint32_t                                        m_pstCfgLogIndex_;          // 集群配置改变的索引
 };
 
 

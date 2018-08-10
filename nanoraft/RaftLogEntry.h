@@ -8,7 +8,6 @@ namespace dan
 {
 namespace nanoraft
 {
-
 // 日志项的类型
 enum class RaftLogEntryType:uint8_t
 {
@@ -31,8 +30,9 @@ private:
     RaftLogEntryType            m_stType_;              // 日志项的类型
     
     uint32_t                    m_dwWriteIt_;           //
-   // std::unique_ptr<uint8_t>    m_pstDataBuf_;          // pb二进制数据
-//    uint32_t                    m_pstDataLen_;          // pb长
+   
+    std::unique_ptr<uint8_t>    m_pstDataBuf_;          // pb二进制数据
+    uint32_t                    m_pstDataLen_;          // pb长
 };
 
 
