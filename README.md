@@ -1,10 +1,13 @@
 # raft_server
 
+raft是个好算法，有golang版本的，也有c版本，所以利用c++实现一下，为了之后给公司项目中使用。
+
 还在施工中....
 目前使用leveldb作为日志固化，使用protobuf作为协议和日志
 
 deps:
     protobuf 3.x
+    
 依赖:
     protobuf 3.x
 
