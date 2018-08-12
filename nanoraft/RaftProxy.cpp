@@ -20,11 +20,11 @@ RaftProxy::~RaftProxy() noexcept{}
 void RaftProxy::Tie(std::shared_ptr<dan::net::Conn>& pstConn){m_pstConn_ = pstConn; m_iConnFd_ = pstConn->Fd();}
 
 
-void RaftProxy::SendAppendEntries()
+void RaftProxy::SendAppendEntries(bool bIsHeart)
 {
     if(auto pstConn = m_pstConn_.lock())
     {
-        pstConn->SendAppendEntries();
+        pstConn->SendAppendEntries(bIsHeart, false);
     }
 }
 

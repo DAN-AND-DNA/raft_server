@@ -55,7 +55,7 @@ public:
 
     void Tie(std::shared_ptr<dan::net::Conn>& pstConn);
 
-    void SendAppendEntries();
+    void SendAppendEntries(bool bIsHeart = true);
 
     int ConnFd(){return m_iConnFd_;}
     std::string ConnHost();

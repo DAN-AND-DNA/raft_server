@@ -96,7 +96,7 @@ void Timer::ServerTimeoutCallback()
         ::read(m_iFd_, &i , sizeof(uint64_t));
         
         printf("leader send appendentries\n");
-        //pstServer->BroadCastAppendEntries();
+        pstServer->BroadCastAppendEntries();
     }
 }
 

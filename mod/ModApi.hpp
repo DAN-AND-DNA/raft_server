@@ -41,8 +41,7 @@ void HandshakeQ(std::weak_ptr<dan::net::Conn>& pstConn, std::unique_ptr<google::
 {
         
         auto p = dynamic_cast<api::handshake_q*>(pstMessage.get());
-        std::cout<<"handshake get peer nodeid:"<<p->nodeid()<<" port:"<<p->raftport()<<std::endl;
-
+        //std::cout<<"handshake get peer nodeid:"<<p->nodeid()<<" port:"<<p->raftport()<<std::endl;
         api::handshake_r stMsg;
         stMsg.set_result(false);
 
@@ -79,7 +78,10 @@ void HandshakeQ(std::weak_ptr<dan::net::Conn>& pstConn, std::unique_ptr<google::
                 // TODO 新的节点配置
                 pst->Server_AddProxy(p->nodeid());
                 pst->Tie(p->nodeid());
-            //    pst->Server_AppendCfgLog("ip", p->raftport(), p->nodeid());             // 广播配置给节点们
+                //printf("append:%s\n", pst->Addr().c_str());
+                pst->Server_AppendCfgLog(pst->Addr(), p->raftport(), p->nodeid());             // 广播配置给节点们
+                pst->Server_BroadCastAppendEntries();
+                //pst->SendAppendEntries(false, true);
             }
 
             stMsg.set_result(true);
@@ -116,11 +118,13 @@ void AppendEntriesQ(std::weak_ptr<dan::net::Conn>& pstConn, std::unique_ptr<goog
         if(pst->Server_IsCandidate() == true && pst->Server_CurrentTerm() == p->term())
         {
             // 1.1 如果服务器是candidate 收到appenentries消息就成为follower 放弃选举
+           printf("---------------1\n");
             pst->Server_BecomeFollower();
         }
         else if(pst->Server_CurrentTerm() < p->term())
         {
             // 1.2 设置并持久化term
+             printf("---------------2\n");
             pst->Server_SetTerm(p->term());
             pst->Server_BecomeFollower();
         }
@@ -128,26 +132,33 @@ void AppendEntriesQ(std::weak_ptr<dan::net::Conn>& pstConn, std::unique_ptr<goog
         {
             // 1.3
             stMsg.set_success(false);
+             printf("---------------3\n"); 
             goto sendreponse;                       // 通知leader变成follower
         }
 
-        pst->Server_SetLeader();                    // 和这个conn绑定的proxy作为leader
+       // pst->Server_BecomeFollower();                    // 和这个conn绑定的proxy作为leader
 
-        printf("leader ip:%s\n", pst->Server_LeaderHost().c_str());
+        //printf("leader ip:%s\n", pst->Server_LeaderHost().c_str());
         //不是第一次收到appendentries 如果是第一次收到appendentries, 即p->prelogindex() == 0 (节点的初始都为0) 
+        
+        
         if(0 < p->prelogindex())
         {
-            int iPrevTerm = pst->Server_LogTermByIndex(p->prelogindex());
+             printf("---------------4\n"); 
+          
+            int iPrevTerm = pst->Server_EntryTermByIndex(p->prelogindex());
             
             // 如果失败，就让leader 减小nextid重试
             if(iPrevTerm == -1)
             {
+                printf("---------------4.1:%d  %d\n", iPrevTerm, p->prelogindex()); 
                 stMsg.set_success(false);
                 goto sendreponse;
             }
 
             if(static_cast<uint32_t>(iPrevTerm) != p->prelogterm())
             {
+                 printf("---------------4.2%d , %d\n", iPrevTerm,  p->prelogterm());
                 stMsg.set_success(false);
                 goto sendreponse;
             }
@@ -157,6 +168,8 @@ void AppendEntriesQ(std::weak_ptr<dan::net::Conn>& pstConn, std::unique_ptr<goog
         // 2 处理心跳消息
         if(p->entries_size() == 0)
         {
+                 printf("---------------5\n"); 
+          
             //TODO 刷新过期时间
             stMsg.set_success(true);
             goto sendreponse;
@@ -177,19 +190,31 @@ void AppendEntriesQ(std::weak_ptr<dan::net::Conn>& pstConn, std::unique_ptr<goog
                 // 准备添加的日志在相同索引的任期冲突,并且这个新日志尚未提交, 删除这个索引和其之后全部日志
                 pst->Server_DelLogsFromIndex(iExistingTerm);
             }
+            else
+            {
+                break;
+            }
         }
-
+         printf("---------------6\n"); 
+          
         // 4. 干掉冲突之后添加日志
         for(; i < p->entries_size(); ++i)
         {
-            dwNewIndex = p->prelogindex() + 1 + i;  
-            pst->Server_AppendLog(p->prelogindex() + dwNewIndex, (p->entries(i)).term(), p->entries(i).write_it());
+             printf("---------------7\n"); 
+          
+            //dwNewIndex = p->prelogindex() + 1 + i;  
+            if(p->entries(i).type() == ::api::entry::CFGADD ||p->entries(i).type() == ::api::entry::CFGREM) 
+            {
+                pst->Server_AppendCfgLog(p->entries(i).host(), p->entries(i).port(), p->entries(i).nodeid());
+            }
         }
 
 
         // 5. 更新commit 索引
         if(pst->Server_CommitIndex() < p->leadercommit())
         {
+            printf("---------------8\n"); 
+            
             uint32_t dwLastNewIndex = p->prelogindex() + p->entries_size();
             pst->Server_SetCommitIndex(std::min(p->leadercommit(), dwLastNewIndex));
         }

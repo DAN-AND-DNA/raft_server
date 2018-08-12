@@ -59,7 +59,7 @@ public:
     int Fd(){return m_iFd_;}
 
     void TryConnect(const char* szAddress, int iPort, int iNodeID, int iRaftPort);
-    void SendAppendEntries(bool bIsHeart = true);                   
+    void SendAppendEntries(bool bIsHeart = true, bool bIsCfg = false);                   
 
     void Tie(std::shared_ptr<dan::nanoraft::RaftProxy>& pstProxy){m_pstProxy_ = pstProxy;}
 
@@ -80,14 +80,17 @@ public:
     void Server_SetTerm(uint32_t dwTerm);
     void Server_SetLeader();
     int Server_LogTermByIndex(uint32_t dwIndex);
+    int Server_EntryTermByIndex(uint32_t dwIndex);
     uint32_t Server_CommitIndex();                          // Server 已经提交的索引号
     void Server_DelLogsFromIndex(uint32_t dwIndex);
     void Server_AppendLog(uint32_t dwIndex, uint32_t dwTerm, uint32_t dwWriteIt);
     void Server_SetCommitIndex(uint32_t dwIndex);
     void Server_AppendCfgLog(std::string strHost, int iRaftPort, int iNodeId);
     std::string Server_LeaderHost();
+    void Server_BroadCastAppendEntries();
 
-
+    
+    
     void Proxy_SetMatchIndex(uint32_t dwIndex);
     void Proxy_SetNextIndex(uint32_t dwIndex);
     void Proxy_IncrMatchIndex();

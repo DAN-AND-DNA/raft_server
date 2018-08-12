@@ -15,6 +15,7 @@ class entry;
 namespace leveldb
 {
 class DB;
+//class IndexComparatorComparator;
 }
 
 
@@ -37,7 +38,7 @@ class Conn;
 
 namespace nanoraft
 {
-
+class IndexComparator;
 enum class RaftProxyRole:uint8_t;
 enum class RaftProxyState:uint8_t;
 class RaftProxy;
@@ -73,14 +74,16 @@ public:
     dan::nanoraft::RaftProxyRole Role(){return m_stRole_;}
     void SetLeader(std::shared_ptr<RaftProxy>& pstProxy){m_pstLeader_ = pstProxy;}
     int LogTermByIndex(uint32_t dwIndex);                                       // 获得指定日志的任期 
+    int EntryTermByIndex(uint32_t dwIndex);
     void DelLogsFromIndex(uint32_t dwIndex);                                    // 删除从索引开始之后全部日志
     void AppendLog(uint32_t dwIndex, uint32_t dwTerm, uint32_t dwWriteIt);      // FIXME 测试用,只是写一个数字 TODO 通用
     
     void SetCommitIndex(uint32_t dwIndex){m_dwCommitIndex_ = dwIndex;}
-    void BroadCastAppendEntries();
+    void BroadCastAppendEntries(bool bIsHeart = true);
     
     void AppendCfgLog(std::string strHost, int iRaftPort, int iNodeID);         // 添加cfg日志
     std::string LeaderHost();
+    void EntryByIndex(uint32_t dwIndex, api::entry* pstEntry); 
 private:
     void TcpAcceptCallback();                                                   // TCP accpet
     void TcpSendAppendEntries();

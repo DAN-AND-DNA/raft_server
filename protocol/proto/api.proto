@@ -35,7 +35,7 @@ message entry
     uint32 port = 4;
     string host = 5;
     
-    // 业务
+    // FIXME 业务
     uint32 write_it = 6;
 }
 

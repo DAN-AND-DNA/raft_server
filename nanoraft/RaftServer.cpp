@@ -17,6 +17,40 @@
 #include <errno.h>
 #include <sstream>
 
+namespace
+{   
+// 日志项的索引比较器
+class IndexComparator : public ::leveldb::Comparator
+{
+public:
+    int Compare(const ::leveldb::Slice& a, const ::leveldb::Slice& b) const 
+    {
+        int iIndex1, iIndex2;
+        std::istringstream is1(a.ToString());
+        std::istringstream is2(b.ToString());
+
+        printf("-----------------\n");
+        is1 >> iIndex1;
+        is2 >> iIndex2;
+
+
+        printf("i1:%d  i2:%d\n", iIndex1, iIndex2);
+        if(iIndex1 < iIndex2)
+            return -1;
+        if(iIndex1 > iIndex2)
+            return 1; 
+        return 0;
+    }
+
+    const char* Name()const {return "IndexComparator";}
+    void FindShortestSeparator(std::string*, const ::leveldb::Slice&) const {}
+    void FindShortSuccessor(std::string*) const{}
+};
+
+IndexComparator  pstCmp;
+}
+
+
 namespace dan
 {
 namespace nanoraft
@@ -60,48 +94,14 @@ RaftServer::RaftServer(dan::eventloop::EventLoop* pstEventLoop, const char* szAd
     dan::mod::Mod::LoadMsg();
     
     ::leveldb::Options stOptions;
-    ::leveldb::Options stOptions1;
-
     ::leveldb::DB* pstStateDB;
     ::leveldb::DB* pstEntriesDB;
 
     ::leveldb::Status stStatus;
 
-
-    // 日志项的索引比较器
-    class IndexComparator : public ::leveldb::Comparator
-    {
-    public:
-        int Compare(const ::leveldb::Slice& a, const ::leveldb::Slice& b) const 
-        {
-            int iIndex1, iIndex2;
-            std::istringstream is1(a.ToString());
-            std::istringstream is2(b.ToString());
-
-            printf("-----------------\n");
-            is1 >> iIndex1;
-            is2 >> iIndex2;
-
-
-            printf("i1:%d  i2:%d\n", iIndex1, iIndex2);
-            if(iIndex1 < iIndex2)
-                return -1;
-            if(iIndex1 > iIndex2)
-                return 1; 
-            return 0;
-        }
-
-        const char* Name()const {return "IndexComparator";}
-        void FindShortestSeparator(std::string*, const ::leveldb::Slice&) const {}
-        void FindShortSuccessor(std::string*) const{}
-    };
-
     stOptions.create_if_missing = true;
-    stOptions1.create_if_missing = true;
     
-    IndexComparator cmp;
-    stOptions.comparator = &cmp;
-    stStatus = ::leveldb::DB::Open(stOptions1, "./state_db", &pstStateDB);
+    stStatus = ::leveldb::DB::Open(stOptions, "./state_db", &pstStateDB);
     if(!stStatus.ok())
     {
          printf("RaftServer::RaftServer() error:%s\n", stStatus.ToString().c_str());
@@ -112,6 +112,8 @@ RaftServer::RaftServer(dan::eventloop::EventLoop* pstEventLoop, const char* szAd
         m_pstStateDB_ = std::move(std::unique_ptr<::leveldb::DB>(pstStateDB));
 
     }
+
+    stOptions.comparator = &pstCmp;
 
     stStatus = ::leveldb::DB::Open(stOptions, "./entries_db", &pstEntriesDB);
     if(!stStatus.ok())
@@ -248,11 +250,11 @@ uint32_t RaftServer::PreLogTerm()
     {
         return m_stLogs_.back()->Term();
     }
-
 }
 
 int RaftServer::LogTermByIndex(uint32_t dwIndex)
 {
+   // printf("size:%d\n", m_stLogs_.size());
     if(m_stLogs_.size() < dwIndex + 1)
     {
         return -1;
@@ -260,6 +262,18 @@ int RaftServer::LogTermByIndex(uint32_t dwIndex)
 
     return m_stLogs_[dwIndex]->Term();
 }
+
+int RaftServer::EntryTermByIndex(uint32_t dwIndex)
+{
+    if(m_stEntries_.size() < dwIndex + 1)
+    {
+        return -1;
+    }
+
+    return m_stEntries_[dwIndex]->term();
+}
+
+
 
 void RaftServer::DelLogsFromIndex(uint32_t dwIndex)
 {
@@ -304,23 +318,21 @@ void RaftServer::AppendLog(uint32_t dwIndex, uint32_t dwTerm, uint32_t dwWriteIt
 }
 
 
-void RaftServer::BroadCastAppendEntries()
+void RaftServer::BroadCastAppendEntries(bool bIsHeart)
 {
     for(auto& it : m_stProxys_)
     {
         if(it.second->State() == RaftProxyState::InActive)
             continue;
       
-        it.second->SendAppendEntries();
+        it.second->SendAppendEntries(bIsHeart);
     }
 }
 
 void RaftServer::AppendCfgLog(std::string strHost, int iRaftPort, int iNodeID)
 {
-    printf("-------------------1\n");
     uint32_t dwIndex = static_cast<uint32_t>(m_stEntries_.size());
    
-    printf("index:%d\n", dwIndex);
     ::leveldb::WriteOptions stWriteOptions;
     stWriteOptions.sync = true;
 
@@ -333,19 +345,17 @@ void RaftServer::AppendCfgLog(std::string strHost, int iRaftPort, int iNodeID)
     pstEntry->set_host(strHost);
     uint32_t dwLen = pstEntry->ByteSize();
    
-     printf("-------------------2\n");
     char* pstBuffer = new char[dwLen]();
     pstEntry->SerializeToArray(pstBuffer, dwLen);
 
-     printf("-------------------3:%d\n",dwLen);
 
     ::leveldb::Slice stValues(pstBuffer);
-    printf("is not null\n");
     ::leveldb::Status stStatus = m_pstEntriesDB_->Put(stWriteOptions, std::to_string(dwIndex), stValues);
-    printf("-------------------4\n");
     if(stStatus.ok())
     {
         m_stEntries_.push_back(std::move(pstEntry));
+        printf("RaftServer::AppendCfgLog log index:%d term:%d nodeid:%d port:%d host:%s\n", 
+                            dwIndex, m_dwCurrentTerm_, iNodeID, iRaftPort, strHost.c_str());
     }
     else
     {
@@ -367,6 +377,10 @@ std::string RaftServer::LeaderHost()
     return "";
 }
 
+void RaftServer::EntryByIndex(uint32_t dwIndex, api::entry* pstEntry)
+{
+    pstEntry->CopyFrom(*(m_stEntries_[dwIndex]));
+}
 
 
 void RaftServer::TcpAcceptCallback()

@@ -289,7 +289,7 @@ void Conn::SendHandShakeQ()
     }
 }
 
-void Conn::SendAppendEntries(bool bIsHeart)
+void Conn::SendAppendEntries(bool bIsHeart, bool bIsCfg)
 {
     if(auto pstServer = m_pstServer_.lock())
     {
@@ -298,17 +298,31 @@ void Conn::SendAppendEntries(bool bIsHeart)
             // 发送的appendentries消息
             api::appendentries_q stMessage;
             stMessage.set_term(pstServer->CurrentTerm());
-            stMessage.set_prelogindex(static_cast<uint32_t>(pstProxy->NextIndex() - 1));
-            stMessage.set_prelogterm(pstServer->PreLogTerm()); 
+            stMessage.set_prelogindex(static_cast<uint32_t>(pstProxy->NextIndex() - 1)); // 收到回包再增加nextindex
+              
+            int iResult = pstServer->EntryTermByIndex(static_cast<uint32_t>(pstProxy->NextIndex() - 1));
+            uint32_t dwTerm = 0;
+            if(iResult == -1)
+            {
+               dwTerm = iResult; 
+            }
+
+            stMessage.set_prelogterm(dwTerm);
             stMessage.set_leadercommit(pstServer->CommitIndex());
            
             if(bIsHeart == false)
             {
-              //  auto pstEntry = stMessage.add_entries();
-                //pstEntry->set_type(api::entry::entrytype::CFGADD);
-                //pstEntry->set_nodeid();
-                //pstEntry->set_port();
-                //pstEntry->set_addr();
+                if(bIsCfg)
+                {}
+                
+                if(pstProxy->NextIndex() - 1 == 0)
+                {
+                    auto pstEntry1 = stMessage.add_entries();
+                    pstServer->EntryByIndex(0, pstEntry1);
+                }
+
+                auto pstEntry = stMessage.add_entries();
+                pstServer->EntryByIndex(static_cast<uint32_t>(pstProxy->NextIndex()), pstEntry);
             }
             else
             {
@@ -461,6 +475,18 @@ int Conn::Server_LogTermByIndex(uint32_t dwIndex)
   
 }
 
+int Conn::Server_EntryTermByIndex(uint32_t dwIndex)
+{
+    if(auto pstS = m_pstServer_.lock())
+    {
+        return pstS->EntryTermByIndex(dwIndex);
+    }
+    return -1;
+  
+}
+
+
+
 uint32_t Conn::Server_CommitIndex()
 {
     if(auto pstS = m_pstServer_.lock())
@@ -510,6 +536,14 @@ std::string Conn::Server_LeaderHost()
         return pstS->LeaderHost();
     }
     return "";
+}
+
+void Conn::Server_BroadCastAppendEntries()
+{
+    if(auto pstS = m_pstServer_.lock())
+    {
+        return pstS->BroadCastAppendEntries(false);
+    }
 }
 
 

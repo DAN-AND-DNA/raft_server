@@ -6,7 +6,7 @@ if(NOT MUDUO_BUILD_TYPE)
     set (CMAKE_BUILD_TYPE "release")
 endif()
 
-set(RAFT_SERVER_NET_PATH "/home/$ENV{USER}/My")
+set(RAFT_SERVER_NET_PATH "/home/$ENV{USER}/Server")
 
 set(CXX_FLAGS
  -std=c++0x                     #TODO c+11
