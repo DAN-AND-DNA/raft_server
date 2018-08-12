@@ -1,7 +1,7 @@
 # raft_server
 
 还在施工中....
-目前使用leveldb作为日志固化，使用protobuf作为协议和日志序列号
+目前使用leveldb作为日志固化，使用protobuf作为协议和日志
 
 deps:
     protobuf 3.x
