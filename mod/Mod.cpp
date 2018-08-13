@@ -95,21 +95,20 @@ void Mod::HandleArrivedMsg()
             if(s_pstsConn->InBufferSize() < (static_cast<int>(dwLen) + 6))
                 return;
             
-            struct timeval tv;
+           // struct timeval tv;
+            //uint64_t ulOldTime = 0;
        
             //TODO 消耗缓存
             std::unique_ptr<google::protobuf::Message> pstMessage(((*(s_stMessages[iMainID]))[dwSubID])->NewMessage());
  
-            ::gettimeofday(&tv, NULL);
-            printf("pars:%ld\n", tv.tv_sec*1000000 + tv.tv_usec);
+            //::gettimeofday(&tv, NULL);
+            // ulOldTime = tv.tv_sec*1000000 + tv.tv_usec;
 
 
        
 
             pstMessage ->ParseFromArray(s_pstsConn->InBufferPtr(6), dwLen);
 
-            ::gettimeofday(&tv, NULL);
-            printf("after pars:%ld\n", tv.tv_sec*1000000 + tv.tv_usec);
 
 
 
@@ -123,11 +122,12 @@ void Mod::HandleArrivedMsg()
         
             std::cout<<((*(s_stMessages[iMainID]))[dwSubID])->Name()<<std::endl;
  
-            ::gettimeofday(&tv, NULL);
-            printf("befor P:%ld\n", tv.tv_sec*1000000 + tv.tv_usec);
 
        
             s_stMods[iMainID]->Proc(s_pstConn, dwSubID, pstMessage);
+
+          //  ::gettimeofday(&tv, NULL);
+           // printf("mod use:%ld us\n", (tv.tv_sec*1000000 + tv.tv_usec) - ulOldTime); 
 
             if(s_pstsConn->OutBufferSize() > 0)
             {
@@ -135,24 +135,21 @@ void Mod::HandleArrivedMsg()
             }
             else if(s_pstsConn->OutBufferSize() == 0)
             {
-                std::cout<<"disable\n";
                 s_pstsConn->DisableWrite(); 
             }
         
-            ::gettimeofday(&tv, NULL);
-            printf("mod done:%ld\n", tv.tv_sec*1000000 + tv.tv_usec);
         }
     }
 }
 
 void Mod::HandlePreSendMsg(std::weak_ptr<dan::net::Conn>& pstConn, uint16_t dwID, google::protobuf::Message&& stMessage)
 {
-                struct timeval tv;
-        ::gettimeofday(&tv, NULL);
-        printf("in HandleP:%ld\n", tv.tv_sec*1000000 + tv.tv_usec);
 
-
-    std::cout<<"in handlePresend\n";
+    struct timeval tv;
+    uint64_t ulOldTime = 0;
+    ::gettimeofday(&tv, NULL);
+    ulOldTime = tv.tv_sec*1000000 + tv.tv_usec;
+   
     uint16_t dwMsgID = dwID;
 
     uint32_t dwLen = stMessage.ByteSize();
@@ -177,8 +174,8 @@ void Mod::HandlePreSendMsg(std::weak_ptr<dan::net::Conn>& pstConn, uint16_t dwID
 
             if(iLeftSize > 0)
                 ::memcpy(pstsConn->OutBufferPtr(0), pstsConn->OutBufferPtr(iSended), iLeftSize); 
-        ::gettimeofday(&tv, NULL);
-        printf("发送完毕:%ld\n", tv.tv_sec*1000000 + tv.tv_usec);
+//        ::gettimeofday(&tv, NULL);
+ //       printf("发送完毕:%ld\n", tv.tv_sec*1000000 + tv.tv_usec);
 
 
         
@@ -192,6 +189,11 @@ void Mod::HandlePreSendMsg(std::weak_ptr<dan::net::Conn>& pstConn, uint16_t dwID
             // TODO error
         }
     }
+
+
+    ::gettimeofday(&tv, NULL);
+    printf("send use:%ld us\n", (tv.tv_sec*1000000 + tv.tv_usec) - ulOldTime);
+
 }
 
 

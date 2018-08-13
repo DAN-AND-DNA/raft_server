@@ -39,9 +39,13 @@ private:
 // TODO 2. 实现消息
 void HandshakeQ(std::weak_ptr<dan::net::Conn>& pstConn, std::unique_ptr<google::protobuf::Message>& pstMessage)
 {
-        
+        struct timeval tv;
+        uint64_t ulOldTime = 0;
+        ::gettimeofday(&tv, NULL);
+        ulOldTime = tv.tv_sec*1000000 + tv.tv_usec;
+       
+
         auto p = dynamic_cast<api::handshake_q*>(pstMessage.get());
-        //std::cout<<"handshake get peer nodeid:"<<p->nodeid()<<" port:"<<p->raftport()<<std::endl;
         api::handshake_r stMsg;
         stMsg.set_result(false);
 
@@ -78,35 +82,41 @@ void HandshakeQ(std::weak_ptr<dan::net::Conn>& pstConn, std::unique_ptr<google::
                 // TODO 新的节点配置
                 pst->Server_AddProxy(p->nodeid());
                 pst->Tie(p->nodeid());
-                //printf("append:%s\n", pst->Addr().c_str());
                 pst->Server_AppendCfgLog(pst->Addr(), p->raftport(), p->nodeid());             // 广播配置给节点们
                 pst->Server_BroadCastAppendEntries();
-                //pst->SendAppendEntries(false, true);
             }
 
             stMsg.set_result(true);
 
 sendreponse:
+            ::gettimeofday(&tv, NULL);
+            printf("mod use:%ld us\n", (tv.tv_sec*1000000 + tv.tv_usec) - ulOldTime); 
+
             HandlePreSendMsg(pstConn, 258, std::move(stMsg));
         }
 }
 
 void HandshakeR(std::weak_ptr<dan::net::Conn>& pstConn, std::unique_ptr<google::protobuf::Message>& pstMessage)
 {
-        struct timeval tv;
-        ::gettimeofday(&tv, NULL);
-        printf("in Api:%ld\n", tv.tv_sec*1000000 + tv.tv_usec);
+    struct timeval tv;
+    uint64_t ulOldTime = 0;
+    ::gettimeofday(&tv, NULL);
+    ulOldTime = tv.tv_sec*1000000 + tv.tv_usec;
+      
+    auto p = dynamic_cast<api::handshake_r*>(pstMessage.get());
+    std::cout<<"handshake response get result:"<<p->result()<<std::endl;
 
-
-        auto p = dynamic_cast<api::handshake_r*>(pstMessage.get());
-        std::cout<<"handshake response get result:"<<p->result()<<std::endl;
-        
-        ::gettimeofday(&tv, NULL);
-        printf("in Api done:%ld\n", tv.tv_sec*1000000 + tv.tv_usec);
+    ::gettimeofday(&tv, NULL);
+    printf("mod use:%ld us\n", (tv.tv_sec*1000000 + tv.tv_usec) - ulOldTime);
 }
 
 void AppendEntriesQ(std::weak_ptr<dan::net::Conn>& pstConn, std::unique_ptr<google::protobuf::Message>& pstMessage)
 {
+    struct timeval tv;
+    uint64_t ulOldTime = 0;
+    ::gettimeofday(&tv, NULL);
+    ulOldTime = tv.tv_sec*1000000 + tv.tv_usec;
+     
     auto p = dynamic_cast<::api::appendentries_q*>(pstMessage.get());
 
     ::api::appendentries_r stMsg;
@@ -168,8 +178,7 @@ void AppendEntriesQ(std::weak_ptr<dan::net::Conn>& pstConn, std::unique_ptr<goog
         // 2 处理心跳消息
         if(p->entries_size() == 0)
         {
-                 printf("---------------5\n"); 
-          
+            printf("get heartbeat===>log term:%d prelog index:%d prelog term:%d\n", p->term(), p->prelogindex(), p->prelogterm());
             //TODO 刷新过期时间
             stMsg.set_success(true);
             stMsg.set_isheartbeat(true);
@@ -201,11 +210,9 @@ void AppendEntriesQ(std::weak_ptr<dan::net::Conn>& pstConn, std::unique_ptr<goog
         // 4. 干掉冲突之后添加日志
         for(; i < p->entries_size(); ++i)
         {
-             printf("---------------7\n"); 
-          
-            //dwNewIndex = p->prelogindex() + 1 + i;  
             if(p->entries(i).type() == ::api::entry::CFGADD ||p->entries(i).type() == ::api::entry::CFGREM) 
             {
+                printf("get cfg===>log term:%d prelog index:%d prelog term:%d\n", p->term(), p->prelogindex(), p->prelogterm());
                 pst->Server_AppendCfgLog(p->entries(i).host(), p->entries(i).port(), p->entries(i).nodeid());
             }
         }
@@ -225,6 +232,9 @@ void AppendEntriesQ(std::weak_ptr<dan::net::Conn>& pstConn, std::unique_ptr<goog
 
 sendreponse:
         stMsg.set_term(pst->Server_CurrentTerm());
+        ::gettimeofday(&tv, NULL);
+        printf("mod use:%ld us\n", (tv.tv_sec*1000000 + tv.tv_usec) - ulOldTime); 
+       
         HandlePreSendMsg(pstConn, 260, std::move(stMsg));
     }
 }
@@ -232,6 +242,12 @@ sendreponse:
 
 void AppendEntriesR(std::weak_ptr<dan::net::Conn>& pstConn, std::unique_ptr<google::protobuf::Message>& pstMessage)
 {
+    struct timeval tv;
+    uint64_t ulOldTime = 0;
+    ::gettimeofday(&tv, NULL);
+    ulOldTime = tv.tv_sec*1000000 + tv.tv_usec;
+     
+
     auto p = dynamic_cast<::api::appendentries_r*>(pstMessage.get());
     printf("term:%d success:%d\n", p->term(), p->success());
     
@@ -263,6 +279,8 @@ void AppendEntriesR(std::weak_ptr<dan::net::Conn>& pstConn, std::unique_ptr<goog
             }
         }
     }
+    ::gettimeofday(&tv, NULL);
+    printf("mod use:%ld us\n", (tv.tv_sec*1000000 + tv.tv_usec) - ulOldTime);
 }
 
 

@@ -33,7 +33,7 @@ deps:
 目前进度：根据算法实现了日志的存储和广播
 
 reuslt:
-================================
+
 get size:8
 in factory ID:259 len:2
 mainID:0 SubID:2
@@ -43,7 +43,7 @@ mod use:7 us
 locked:260 4
 直接发送给:13 字节:10
 send use:20 us
-==========================================================
+
 get size:8
 in factory ID:259 len:2
 mainID:0 SubID:2
@@ -53,11 +53,11 @@ mod use:10 us
 locked:260 4
 直接发送给:13 字节:10
 send use:40 us
-===========================================================
 
 my compay:
+
 PING 192.168.1.46 (192.168.1.46) 56(84) bytes of data.
-64 bytes from 192.168.1.46: icmp_seq=1 ttl=64 time=0.036 ms
+64 bytes from 192.168.1.46: icmp_seq=42 ttl=64 time=0.036 ms
 64 bytes from 192.168.1.46: icmp_seq=43 ttl=64 time=0.043 ms
 64 bytes from 192.168.1.46: icmp_seq=44 ttl=64 time=0.060 ms
 64 bytes from 192.168.1.46: icmp_seq=45 ttl=64 time=0.073 ms

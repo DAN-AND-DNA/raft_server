@@ -6,6 +6,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <netinet/tcp.h>
 
 namespace dan
 {
@@ -50,7 +51,8 @@ SocketWrapper::SocketWrapper(int iSocketType,int iPort, const char* szAddress) n
                 {
                     m_iFd_ = ::socket(pstCurr->ai_family, pstCurr->ai_socktype, pstCurr->ai_protocol);
                     int iOptval = 1;
-                    if(m_iFd_ == -1 || ::setsockopt(m_iFd_, SOL_SOCKET, SO_REUSEADDR, &iOptval, sizeof iOptval) == -1|| 
+                    if(m_iFd_ == -1 || ::setsockopt(m_iFd_, SOL_SOCKET, SO_REUSEADDR, &iOptval, sizeof iOptval) == -1||
+                                        ::setsockopt(m_iFd_, IPPROTO_TCP, TCP_NODELAY, &iOptval, sizeof iOptval) == -1 ||
                                         ::bind(m_iFd_, pstResult->ai_addr, pstResult->ai_addrlen) == -1 || 
                                         ::listen(m_iFd_, 64) == -1)
                     {
@@ -98,7 +100,8 @@ SocketWrapper::SocketWrapper(int iSocketType,int iPort, const char* szAddress) n
                 {
                     m_iFd_ = ::socket(pstCurr->ai_family, pstCurr->ai_socktype, pstCurr->ai_protocol);
                     int iOptval = 1;
-                    if(m_iFd_ == -1 || ::setsockopt(m_iFd_, SOL_SOCKET, SO_REUSEADDR, &iOptval, sizeof iOptval) == -1)
+                    if(m_iFd_ == -1 || ::setsockopt(m_iFd_, SOL_SOCKET, SO_REUSEADDR, &iOptval, sizeof iOptval) == -1 ||
+                                       ::setsockopt(m_iFd_, IPPROTO_TCP, TCP_NODELAY, &iOptval, sizeof iOptval) == -1)
                     {
                         //TODO 打印错误
                         printf("socket error\n");
