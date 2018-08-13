@@ -60,6 +60,7 @@ public:
     void AddProxy(uint32_t dwID);
     uint64_t ProxysNum()const {return m_stProxys_.size();}                      // 当前代理的数量
     uint64_t LastLogIndex(){return m_stLogs_.size() + m_dwLogBase_;}            // 当前日志的序号
+    uint64_t LastEntryIndex();
     void BecomeLeader();                                                        // 直接成为leader
     void BecomeFollower();
 
@@ -95,6 +96,7 @@ private:
     uint32_t                                        m_dwLastApplied_;           // 应用到状态机的最大日志序列号 (本机将日志项应用到状态机)
     RaftProxyRole                                   m_stRole_;                  // 本机的当前任期的集群身份
     uint64_t                                        m_dwLogBase_;               // 压缩日志的基数
+    uint64_t                                        m_dwEntryBase_;             // 压缩日志项的基数
 
     std::weak_ptr<RaftProxy>                        m_pstLeader_;               // leader所对应的代理
     std::map<uint32_t, std::shared_ptr<RaftProxy>>  m_stProxys_;                // 集群中其他节点的代理

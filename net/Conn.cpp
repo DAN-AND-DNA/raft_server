@@ -311,12 +311,17 @@ void Conn::SendAppendEntries(bool bIsHeart, bool bIsCfg)
             stMessage.set_leadercommit(pstServer->CommitIndex());
            
             if(bIsHeart == false)
+            {}
+
+            if(bIsCfg)
+            {}
+
+            if(pstServer->LastEntryIndex() >= pstProxy->NextIndex())
             {
-                if(bIsCfg)
-                {}
-                
+                // 最新的日志序号 >= 本次要发送的序号
+
                 if(pstProxy->NextIndex() - 1 == 0)
-                {
+                { 
                     auto pstEntry1 = stMessage.add_entries();
                     pstServer->EntryByIndex(0, pstEntry1);
                 }
@@ -326,9 +331,7 @@ void Conn::SendAppendEntries(bool bIsHeart, bool bIsCfg)
             }
             else
             {
-
                 printf("send heart:%d , %u!!!\n", dwTerm, static_cast<uint32_t>(pstProxy->NextIndex())); 
-                
             }
             //auto pstEntry = stMessage.add_entries();
             

@@ -63,6 +63,7 @@ RaftServer::RaftServer(dan::eventloop::EventLoop* pstEventLoop) noexcept:
     m_dwLastApplied_(0),
     m_stRole_(RaftProxyRole::Follower),
     m_dwLogBase_(0),
+    m_dwEntryBase_(0),
     m_pstLeader_(),
     m_stProxys_(),
     m_stLogs_(),
@@ -81,6 +82,7 @@ RaftServer::RaftServer(dan::eventloop::EventLoop* pstEventLoop, const char* szAd
     m_dwLastApplied_(0),
     m_stRole_(RaftProxyRole::Follower),
     m_dwLogBase_(0),
+    m_dwEntryBase_(0),
     m_pstLeader_(),
     m_stProxys_(),
     m_stLogs_(),
@@ -164,6 +166,18 @@ void RaftServer::AddProxy(uint32_t dwID)
         printf("new proxy\n");
         m_stProxys_[dwID] = std::shared_ptr<RaftProxy>(new RaftProxy());
         m_stProxys_[dwID]->SetID(dwID);
+    }
+}
+
+uint64_t RaftServer::LastEntryIndex()
+{
+    if(m_stEntries_.empty())
+    {
+        return 0;
+    }
+    else
+    {
+        return m_stEntries_.size() - 1;
     }
 }
 
