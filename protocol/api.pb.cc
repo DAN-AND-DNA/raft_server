@@ -253,6 +253,7 @@ const ::google::protobuf::uint32 TableStruct::offsets[] GOOGLE_PROTOBUF_ATTRIBUT
   ~0u,  // no _weak_field_map_
   GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(::api::appendentries_r, term_),
   GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(::api::appendentries_r, success_),
+  GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(::api::appendentries_r, isheartbeat_),
   ~0u,  // no _has_bits_
   GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(::api::requestvote_q, _internal_metadata_),
   ~0u,  // no _extensions_
@@ -276,8 +277,8 @@ static const ::google::protobuf::internal::MigrationSchema schemas[] GOOGLE_PROT
   { 16, -1, sizeof(::api::entry)},
   { 27, -1, sizeof(::api::appendentries_q)},
   { 37, -1, sizeof(::api::appendentries_r)},
-  { 44, -1, sizeof(::api::requestvote_q)},
-  { 53, -1, sizeof(::api::requestvote_r)},
+  { 45, -1, sizeof(::api::requestvote_q)},
+  { 54, -1, sizeof(::api::requestvote_r)},
 };
 
 static ::google::protobuf::Message const * const file_default_instances[] = {
@@ -323,15 +324,15 @@ void AddDescriptorsImpl() {
       "\006CFGREM\020\002\"{\n\017appendentries_q\022\014\n\004term\030\001 \001"
       "(\r\022\023\n\013prelogindex\030\002 \001(\r\022\022\n\nprelogterm\030\003 "
       "\001(\r\022\024\n\014leadercommit\030\004 \001(\r\022\033\n\007entries\030\005 \003"
-      "(\0132\n.api.entry\"0\n\017appendentries_r\022\014\n\004ter"
-      "m\030\001 \001(\r\022\017\n\007success\030\002 \001(\010\"]\n\rrequestvote_"
-      "q\022\014\n\004term\030\001 \001(\r\022\023\n\013candidateId\030\002 \001(\r\022\024\n\014"
-      "lastLogIndex\030\003 \001(\r\022\023\n\013lastLogTerm\030\004 \001(\r\""
-      "2\n\rrequestvote_r\022\014\n\004term\030\001 \001(\r\022\023\n\013votegr"
-      "anted\030\002 \001(\010b\006proto3"
+      "(\0132\n.api.entry\"E\n\017appendentries_r\022\014\n\004ter"
+      "m\030\001 \001(\r\022\017\n\007success\030\002 \001(\010\022\023\n\013isheartbeat\030"
+      "\003 \001(\010\"]\n\rrequestvote_q\022\014\n\004term\030\001 \001(\r\022\023\n\013"
+      "candidateId\030\002 \001(\r\022\024\n\014lastLogIndex\030\003 \001(\r\022"
+      "\023\n\013lastLogTerm\030\004 \001(\r\"2\n\rrequestvote_r\022\014\n"
+      "\004term\030\001 \001(\r\022\023\n\013votegranted\030\002 \001(\010b\006proto3"
   };
   ::google::protobuf::DescriptorPool::InternalAddGeneratedFile(
-      descriptor, 659);
+      descriptor, 680);
   ::google::protobuf::MessageFactory::InternalRegisterGeneratedFile(
     "api.proto", &protobuf_RegisterTypes);
 }
@@ -1871,6 +1872,7 @@ void appendentries_r::InitAsDefaultInstance() {
 #if !defined(_MSC_VER) || _MSC_VER >= 1900
 const int appendentries_r::kTermFieldNumber;
 const int appendentries_r::kSuccessFieldNumber;
+const int appendentries_r::kIsheartbeatFieldNumber;
 #endif  // !defined(_MSC_VER) || _MSC_VER >= 1900
 
 appendentries_r::appendentries_r()
@@ -1887,15 +1889,15 @@ appendentries_r::appendentries_r(const appendentries_r& from)
       _cached_size_(0) {
   _internal_metadata_.MergeFrom(from._internal_metadata_);
   ::memcpy(&term_, &from.term_,
-    static_cast<size_t>(reinterpret_cast<char*>(&success_) -
-    reinterpret_cast<char*>(&term_)) + sizeof(success_));
+    static_cast<size_t>(reinterpret_cast<char*>(&isheartbeat_) -
+    reinterpret_cast<char*>(&term_)) + sizeof(isheartbeat_));
   // @@protoc_insertion_point(copy_constructor:api.appendentries_r)
 }
 
 void appendentries_r::SharedCtor() {
   ::memset(&term_, 0, static_cast<size_t>(
-      reinterpret_cast<char*>(&success_) -
-      reinterpret_cast<char*>(&term_)) + sizeof(success_));
+      reinterpret_cast<char*>(&isheartbeat_) -
+      reinterpret_cast<char*>(&term_)) + sizeof(isheartbeat_));
   _cached_size_ = 0;
 }
 
@@ -1937,8 +1939,8 @@ void appendentries_r::Clear() {
   (void) cached_has_bits;
 
   ::memset(&term_, 0, static_cast<size_t>(
-      reinterpret_cast<char*>(&success_) -
-      reinterpret_cast<char*>(&term_)) + sizeof(success_));
+      reinterpret_cast<char*>(&isheartbeat_) -
+      reinterpret_cast<char*>(&term_)) + sizeof(isheartbeat_));
   _internal_metadata_.Clear();
 }
 
@@ -1974,6 +1976,20 @@ bool appendentries_r::MergePartialFromCodedStream(
           DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
                    bool, ::google::protobuf::internal::WireFormatLite::TYPE_BOOL>(
                  input, &success_)));
+        } else {
+          goto handle_unusual;
+        }
+        break;
+      }
+
+      // bool isheartbeat = 3;
+      case 3: {
+        if (static_cast< ::google::protobuf::uint8>(tag) ==
+            static_cast< ::google::protobuf::uint8>(24u /* 24 & 0xFF */)) {
+
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   bool, ::google::protobuf::internal::WireFormatLite::TYPE_BOOL>(
+                 input, &isheartbeat_)));
         } else {
           goto handle_unusual;
         }
@@ -2016,6 +2032,11 @@ void appendentries_r::SerializeWithCachedSizes(
     ::google::protobuf::internal::WireFormatLite::WriteBool(2, this->success(), output);
   }
 
+  // bool isheartbeat = 3;
+  if (this->isheartbeat() != 0) {
+    ::google::protobuf::internal::WireFormatLite::WriteBool(3, this->isheartbeat(), output);
+  }
+
   if ((_internal_metadata_.have_unknown_fields() &&  ::google::protobuf::internal::GetProto3PreserveUnknownsDefault())) {
     ::google::protobuf::internal::WireFormat::SerializeUnknownFields(
         (::google::protobuf::internal::GetProto3PreserveUnknownsDefault()   ? _internal_metadata_.unknown_fields()   : _internal_metadata_.default_instance()), output);
@@ -2038,6 +2059,11 @@ void appendentries_r::SerializeWithCachedSizes(
   // bool success = 2;
   if (this->success() != 0) {
     target = ::google::protobuf::internal::WireFormatLite::WriteBoolToArray(2, this->success(), target);
+  }
+
+  // bool isheartbeat = 3;
+  if (this->isheartbeat() != 0) {
+    target = ::google::protobuf::internal::WireFormatLite::WriteBoolToArray(3, this->isheartbeat(), target);
   }
 
   if ((_internal_metadata_.have_unknown_fields() &&  ::google::protobuf::internal::GetProto3PreserveUnknownsDefault())) {
@@ -2066,6 +2092,11 @@ size_t appendentries_r::ByteSizeLong() const {
 
   // bool success = 2;
   if (this->success() != 0) {
+    total_size += 1 + 1;
+  }
+
+  // bool isheartbeat = 3;
+  if (this->isheartbeat() != 0) {
     total_size += 1 + 1;
   }
 
@@ -2104,6 +2135,9 @@ void appendentries_r::MergeFrom(const appendentries_r& from) {
   if (from.success() != 0) {
     set_success(from.success());
   }
+  if (from.isheartbeat() != 0) {
+    set_isheartbeat(from.isheartbeat());
+  }
 }
 
 void appendentries_r::CopyFrom(const ::google::protobuf::Message& from) {
@@ -2132,6 +2166,7 @@ void appendentries_r::InternalSwap(appendentries_r* other) {
   using std::swap;
   swap(term_, other->term_);
   swap(success_, other->success_);
+  swap(isheartbeat_, other->isheartbeat_);
   _internal_metadata_.Swap(&other->_internal_metadata_);
   swap(_cached_size_, other->_cached_size_);
 }

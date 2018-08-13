@@ -55,6 +55,7 @@ message appendentries_r
 {
     uint32 term = 1;
     bool success = 2;
+    bool isheartbeat = 3;
 }
 
 // 261

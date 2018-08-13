@@ -747,12 +747,19 @@ class appendentries_r : public ::google::protobuf::Message /* @@protoc_insertion
   bool success() const;
   void set_success(bool value);
 
+  // bool isheartbeat = 3;
+  void clear_isheartbeat();
+  static const int kIsheartbeatFieldNumber = 3;
+  bool isheartbeat() const;
+  void set_isheartbeat(bool value);
+
   // @@protoc_insertion_point(class_scope:api.appendentries_r)
  private:
 
   ::google::protobuf::internal::InternalMetadataWithArena _internal_metadata_;
   ::google::protobuf::uint32 term_;
   bool success_;
+  bool isheartbeat_;
   mutable int _cached_size_;
   friend struct ::protobuf_api_2eproto::TableStruct;
   friend void ::protobuf_api_2eproto::InitDefaultsappendentries_rImpl();
@@ -1368,6 +1375,20 @@ inline void appendentries_r::set_success(bool value) {
   
   success_ = value;
   // @@protoc_insertion_point(field_set:api.appendentries_r.success)
+}
+
+// bool isheartbeat = 3;
+inline void appendentries_r::clear_isheartbeat() {
+  isheartbeat_ = false;
+}
+inline bool appendentries_r::isheartbeat() const {
+  // @@protoc_insertion_point(field_get:api.appendentries_r.isheartbeat)
+  return isheartbeat_;
+}
+inline void appendentries_r::set_isheartbeat(bool value) {
+  
+  isheartbeat_ = value;
+  // @@protoc_insertion_point(field_set:api.appendentries_r.isheartbeat)
 }
 
 // -------------------------------------------------------------------

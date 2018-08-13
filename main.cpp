@@ -47,10 +47,10 @@ int main(int argc, char** argv)
             iRaftPort = ::atoi(argv[3]);
             if (iRaftPort != -1)
             {
-                printf("start server at 192.168.0.103 raft port:%d\n",  iRaftPort);
-                std::shared_ptr<dan::nanoraft::RaftServer> pstRaftServer(new dan::nanoraft::RaftServer(&stEventLoop, "192.168.0.103", iRaftPort));
+                printf("start server at 192.168.1.46 raft port:%d\n",  iRaftPort);
+                std::shared_ptr<dan::nanoraft::RaftServer> pstRaftServer(new dan::nanoraft::RaftServer(&stEventLoop, "192.168.1.46", iRaftPort));
                 pstRaftServer->BecomeLeader(); 
-                pstRaftServer->AppendCfgLog("192.168.0.103", iRaftPort, iNodeID);
+                pstRaftServer->AppendCfgLog("192.168.1.46", iRaftPort, iNodeID);
                 pstRaftServer->Run();
             }
 

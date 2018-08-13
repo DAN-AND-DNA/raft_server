@@ -302,7 +302,7 @@ void Conn::SendAppendEntries(bool bIsHeart, bool bIsCfg)
               
             int iResult = pstServer->EntryTermByIndex(static_cast<uint32_t>(pstProxy->NextIndex() - 1));
             uint32_t dwTerm = 0;
-            if(iResult == -1)
+            if(iResult != -1)
             {
                dwTerm = iResult; 
             }
@@ -326,6 +326,8 @@ void Conn::SendAppendEntries(bool bIsHeart, bool bIsCfg)
             }
             else
             {
+
+                printf("send heart:%d , %u!!!\n", dwTerm, static_cast<uint32_t>(pstProxy->NextIndex())); 
                 
             }
             //auto pstEntry = stMessage.add_entries();

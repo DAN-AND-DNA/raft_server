@@ -172,6 +172,7 @@ void AppendEntriesQ(std::weak_ptr<dan::net::Conn>& pstConn, std::unique_ptr<goog
           
             //TODO 刷新过期时间
             stMsg.set_success(true);
+            stMsg.set_isheartbeat(true);
             goto sendreponse;
         }
 
@@ -251,9 +252,15 @@ void AppendEntriesR(std::weak_ptr<dan::net::Conn>& pstConn, std::unique_ptr<goog
         }
         else
         {
-            // 成功了就更新信息
-            pst->Proxy_IncrMatchIndex();
-            pst->Proxy_IncrNextIndex();
+            if(p->isheartbeat() == true)
+            {
+            }
+            else
+            {
+                // 成功了就更新信息
+                pst->Proxy_IncrMatchIndex();
+                pst->Proxy_IncrNextIndex();
+            }
         }
     }
 }
