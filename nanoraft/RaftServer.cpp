@@ -445,6 +445,30 @@ void RaftServer::FreshTime(std::string& strRole)
     }
 }
 
+bool RaftServer::ChangeCommitIndex()
+{
+
+    int iMostNum =static_cast<int>((ProxysNum()/2) +1);
+    int iCurrNum = 0;
+
+    for(auto& it : m_stProxys_)
+    {
+        if(it.second->MatchIndex() >= (m_dwCommitIndex_ + 1))
+        {
+            iCurrNum ++;
+        }
+    }
+
+    if(iCurrNum >= iMostNum && m_stEntries_[m_dwCommitIndex_ + 1]->term() == m_dwCurrentTerm_)
+    {
+        // 大多数都已经拿到了这个索引的日志 并且日志的任期等于现在的任期
+        m_dwCommitIndex_++;
+        return true;
+    }
+
+    return false;
+}
+
 
 void RaftServer::TcpAcceptCallback()
 {

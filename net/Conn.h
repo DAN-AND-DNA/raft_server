@@ -90,7 +90,7 @@ public:
     std::string Server_LeaderHost();
     void Server_BroadCastAppendEntries();
     void Server_FreshTime(std::string&& strRole);                
-
+    bool Server_ChangeCommitIndex();
     
     
     void Proxy_SetMatchIndex(uint32_t dwIndex);

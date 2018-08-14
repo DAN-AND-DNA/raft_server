@@ -93,6 +93,7 @@ public:
     std::string LeaderHost();
     void EntryByIndex(uint32_t dwIndex, api::entry* pstEntry); 
     void FreshTime(std::string& strRole);
+    bool ChangeCommitIndex();                                                   
 private:
     void TcpAcceptCallback();                                                   // TCP accpet
     void TcpSendAppendEntries();
@@ -122,6 +123,7 @@ private:
     uint32_t                                        m_pstCfgLogIndex_;          // 集群配置改变的索引
 
     std::map<std::string, std::shared_ptr<dan::timer::Timer>>    m_stTimers_;    //
+
 
 //    uint32_t                                        m_HeartbeatTimeout_         // 心跳过期时间
 };

@@ -128,7 +128,7 @@ void AppendEntriesQ(std::weak_ptr<dan::net::Conn>& pstConn, std::unique_ptr<goog
         if(pst->Server_IsCandidate() == true && pst->Server_CurrentTerm() == p->term())
         {
             // 1.1 如果服务器是candidate 收到appenentries消息就成为follower 放弃选举
-           printf("---------------1\n");
+            printf("---------------1\n");
             pst->Server_BecomeFollower();
         }
         else if(pst->Server_CurrentTerm() < p->term())
@@ -284,6 +284,17 @@ void AppendEntriesR(std::weak_ptr<dan::net::Conn>& pstConn, std::unique_ptr<goog
                 pst->Proxy_IncrMatchIndex();
                 pst->Proxy_IncrNextIndex();
             }
+        }
+        //更新
+        bool bResult = pst->Server_ChangeCommitIndex();
+        if(bResult == true)
+        {
+            //1 已经复制给多数的节点(安全复制) 应用这个日志到本机的状态机(比如配置就新建一个conn, 比如逻辑协议就处理)
+            printf("leader apply log to FSM\n");
+        }
+        else
+        {
+            printf("leader can not apply log to FSM\n");
         }
     }
     ::gettimeofday(&tv, NULL);

@@ -553,14 +553,21 @@ void Conn::Server_BroadCastAppendEntries()
 
 void Conn::Server_FreshTime(std::string&& strRole)
 {
-    if(auto psTServer = m_pstServer_.lock())
+    if(auto pstServer = m_pstServer_.lock())
     {
         printf("fresh time:%s\n", strRole.c_str());
-        return psTServer->FreshTime(strRole);
+        return pstServer->FreshTime(strRole);
     }
 }
 
-
+bool Conn::Server_ChangeCommitIndex()
+{
+    if(auto pstServer = m_pstServer_.lock())
+    {
+        return pstServer->ChangeCommitIndex();
+    }
+    return false;
+}
 
 void Conn::Proxy_SetMatchIndex(uint32_t dwIndex)
 {
