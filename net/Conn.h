@@ -59,7 +59,8 @@ public:
     int Fd(){return m_iFd_;}
 
     void TryConnect(const char* szAddress, int iPort, int iNodeID, int iRaftPort);
-    void SendAppendEntries(bool bIsHeart = true, bool bIsCfg = false);                   
+    void SendAppendEntries(bool bIsHeart = true, bool bIsCfg = false);
+    //void SendRequestVote();
 
     void Tie(std::shared_ptr<dan::nanoraft::RaftProxy>& pstProxy){m_pstProxy_ = pstProxy;}
 
@@ -88,6 +89,7 @@ public:
     void Server_AppendCfgLog(std::string strHost, int iRaftPort, int iNodeId);
     std::string Server_LeaderHost();
     void Server_BroadCastAppendEntries();
+    void Server_FreshTime(std::string&& strRole);                
 
     
     

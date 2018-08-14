@@ -16,6 +16,7 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <sstream>
+#include <random>
 
 namespace
 {   
@@ -202,12 +203,29 @@ void RaftServer::BecomeFollower()
     //TODO 随机选举超时时间
 }
 
+void RaftServer::BecomeCandidate()
+{
+    printf("become candidate\n");
+
+    //1. 任期+1
+    m_dwCurrentTerm_++;
+
+    //2. 随机选举超时时间
+    std::random_device r;
+    std::default_random_engine e1(r());
+    std::uniform_int_distribution<int> uniform_dist(200, 500);       // 
+    int iRandomTime = uniform_dist(e1);
+    printf("become candidate new term:%d random vote time:%d ms\n", m_dwCurrentTerm_, iRandomTime);
+}
+
 void RaftServer::Run()
 {
 
     std::shared_ptr<dan::nanoraft::RaftServer> pst = shared_from_this();
-    std::shared_ptr<dan::timer::Timer> pstTimer(new dan::timer::Timer(10, m_pstEventLoop_, pst));
-    pstTimer->Init();
+    
+    // leader定时器
+    m_stTimers_["leader"] = std::move(std::shared_ptr<dan::timer::Timer>(new dan::timer::Timer(10, m_pstEventLoop_, pst, true)));
+    m_stTimers_["leader"]->Init();
 
     m_pstServerChannel_->SetReadCallback(std::bind(&RaftServer::TcpAcceptCallback, this));
     m_pstServerChannel_->EnableRead();
@@ -223,6 +241,11 @@ void RaftServer::ConnectToPeer(const char* szAddress, int iPort, int iNodeID, in
     pstConn->Init();
     pstConn->TryConnect(szAddress, iPort, iNodeID, iRaftPort);
     pstConn->SetAddr(szAddress);
+
+
+    // follower定时器
+    m_stTimers_["follower"] = std::move(std::shared_ptr<dan::timer::Timer>(new dan::timer::Timer(21, m_pstEventLoop_, pst, false)));
+    m_stTimers_["follower"]->Init();
 
     m_stConns_[pstConn->Fd()] = pstConn;
     m_pstEventLoop_->Loop();
@@ -343,6 +366,16 @@ void RaftServer::BroadCastAppendEntries(bool bIsHeart)
     }
 }
 
+void RaftServer::BroadCastRequestVote()
+{
+   // for(auto& it : m_stProxys_)
+    {
+        //if(it.second->)
+        printf("broadcast vote msg\n");
+    }
+}
+
+
 void RaftServer::AppendCfgLog(std::string strHost, int iRaftPort, int iNodeID)
 {
     uint32_t dwIndex = static_cast<uint32_t>(m_stEntries_.size());
@@ -394,6 +427,22 @@ std::string RaftServer::LeaderHost()
 void RaftServer::EntryByIndex(uint32_t dwIndex, api::entry* pstEntry)
 {
     pstEntry->CopyFrom(*(m_stEntries_[dwIndex]));
+}
+
+
+void RaftServer::FreshTime(std::string& strRole)
+{
+    if(m_stTimers_[strRole])
+    {
+        if(strRole == "follower" )
+        {
+            m_stTimers_[strRole]->FreshTime(10);
+        }
+        else if(strRole == "leader")
+        {
+            m_stTimers_[strRole]->FreshTime(20);
+        }
+    }
 }
 
 

@@ -551,6 +551,14 @@ void Conn::Server_BroadCastAppendEntries()
     }
 }
 
+void Conn::Server_FreshTime(std::string&& strRole)
+{
+    if(auto psTServer = m_pstServer_.lock())
+    {
+        printf("fresh time:%s\n", strRole.c_str());
+        return psTServer->FreshTime(strRole);
+    }
+}
 
 
 

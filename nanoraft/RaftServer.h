@@ -35,6 +35,11 @@ class SocketWrapper;
 class Conn;
 }
 
+namespace timer
+{
+class Timer;
+}
+
 
 namespace nanoraft
 {
@@ -63,6 +68,7 @@ public:
     uint64_t LastEntryIndex();
     void BecomeLeader();                                                        // 直接成为leader
     void BecomeFollower();
+    void BecomeCandidate();                                                     // 
 
     void Run();
     void ConnectToPeer(const char* szAddress, int iPort, int iNodeID, int iRaftPort);
@@ -81,10 +87,12 @@ public:
     
     void SetCommitIndex(uint32_t dwIndex){m_dwCommitIndex_ = dwIndex;}
     void BroadCastAppendEntries(bool bIsHeart = true);
-    
+    void BroadCastRequestVote();
+
     void AppendCfgLog(std::string strHost, int iRaftPort, int iNodeID);         // 添加cfg日志
     std::string LeaderHost();
     void EntryByIndex(uint32_t dwIndex, api::entry* pstEntry); 
+    void FreshTime(std::string& strRole);
 private:
     void TcpAcceptCallback();                                                   // TCP accpet
     void TcpSendAppendEntries();
@@ -94,7 +102,7 @@ private:
     uint32_t                                        m_dwVotedFor_;              // 当前任期, 投票给候选人的ID
     uint32_t                                        m_dwCommitIndex_;           // leader已经提交的最大日志序号 (提交即绝大多数的节点已经获得该日志序列号)
     uint32_t                                        m_dwLastApplied_;           // 应用到状态机的最大日志序列号 (本机将日志项应用到状态机)
-    RaftProxyRole                                   m_stRole_;                  // 本机的当前任期的集群身份
+    RaftProxyRole                                   m_stRole_;                  // 本机的当前任期的集群身份   初始为跟随者
     uint64_t                                        m_dwLogBase_;               // 压缩日志的基数
     uint64_t                                        m_dwEntryBase_;             // 压缩日志项的基数
 
@@ -112,6 +120,10 @@ private:
     std::unique_ptr<::leveldb::DB>                  m_pstStateDB_;              // 状态db
     std::unique_ptr<::leveldb::DB>                  m_pstEntriesDB_;            // 日志项db
     uint32_t                                        m_pstCfgLogIndex_;          // 集群配置改变的索引
+
+    std::map<std::string, std::shared_ptr<dan::timer::Timer>>    m_stTimers_;    //
+
+//    uint32_t                                        m_HeartbeatTimeout_         // 心跳过期时间
 };
 
 

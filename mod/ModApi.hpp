@@ -180,6 +180,8 @@ void AppendEntriesQ(std::weak_ptr<dan::net::Conn>& pstConn, std::unique_ptr<goog
         {
             printf("get heartbeat===>log term:%d prelog index:%d prelog term:%d\n", p->term(), p->prelogindex(), p->prelogterm());
             //TODO 刷新过期时间
+
+            pst->Server_FreshTime(std::move(std::string("follower")));
             stMsg.set_success(true);
             stMsg.set_isheartbeat(true);
             goto sendreponse;
@@ -215,6 +217,10 @@ void AppendEntriesQ(std::weak_ptr<dan::net::Conn>& pstConn, std::unique_ptr<goog
                 printf("get cfg===>log term:%d prelog index:%d prelog term:%d\n", p->term(), p->prelogindex(), p->prelogterm());
                 pst->Server_AppendCfgLog(p->entries(i).host(), p->entries(i).port(), p->entries(i).nodeid());
             }
+            else
+            {
+                // 普通日志
+            }
         }
 
 
@@ -225,6 +231,7 @@ void AppendEntriesQ(std::weak_ptr<dan::net::Conn>& pstConn, std::unique_ptr<goog
             
             uint32_t dwLastNewIndex = p->prelogindex() + p->entries_size();
             pst->Server_SetCommitIndex(std::min(p->leadercommit(), dwLastNewIndex));
+            // 应用日志项
         }
 
         stMsg.set_success(true);
