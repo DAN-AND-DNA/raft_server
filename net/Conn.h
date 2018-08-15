@@ -89,14 +89,15 @@ public:
     void Server_AppendCfgLog(std::string strHost, int iRaftPort, int iNodeId);
     std::string Server_LeaderHost();
     void Server_BroadCastAppendEntries();
-    void Server_FreshTime(std::string&& strRole);                
+    void Server_FreshTime(const int iTimer);                
     bool Server_ChangeCommitIndex();
-    
+    void Server_IncrCommitIndex();
     
     void Proxy_SetMatchIndex(uint32_t dwIndex);
     void Proxy_SetNextIndex(uint32_t dwIndex);
     void Proxy_IncrMatchIndex();
     void Proxy_IncrNextIndex();
+
 
 private:
     void RecvCallback();

@@ -551,12 +551,20 @@ void Conn::Server_BroadCastAppendEntries()
     }
 }
 
-void Conn::Server_FreshTime(std::string&& strRole)
+void Conn::Server_FreshTime(const int iTimer)
 {
     if(auto pstServer = m_pstServer_.lock())
     {
-        printf("fresh time:%s\n", strRole.c_str());
-        return pstServer->FreshTime(strRole);
+        printf("fresh time:%d\n", iTimer);
+        return pstServer->FreshTime(iTimer);
+    }
+}
+
+void Conn::Server_IncrCommitIndex()
+{
+    if(auto pstServer = m_pstServer_.lock())
+    {
+        pstServer->SetCommitIndex(pstServer->CommitIndex() + 1);
     }
 }
 

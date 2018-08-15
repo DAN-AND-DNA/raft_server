@@ -6,6 +6,13 @@
 #include <raft_server/protocol/api.pb.h>
 #include <iostream>
 #include <sys/time.h>
+namespace
+{
+const int FollowerHeartbeatTimer = 0;
+const int FollowerApplyLogTimer  = 1;
+const int LeaderHeartbeatTimer   = 2;
+}
+
 
 namespace dan
 {
@@ -72,10 +79,16 @@ void HandshakeQ(std::weak_ptr<dan::net::Conn>& pstConn, std::unique_ptr<google::
             if(iOldConnFd != -1)
             {
                 // TODO 之前就存在该代理 干掉那个老的conn 替换本conn
+                printf("==============old ass online!");
+
                 if(iOldConnFd != pst->Fd())
                 {
-                    pst->Server_CloseConn(iOldConnFd);
+                     pst->Server_CloseConn(iOldConnFd);
                 }
+
+                printf("==============tie to old ass !");
+                pst->Tie(p->nodeid());
+                
             }
             else
             {
@@ -83,6 +96,7 @@ void HandshakeQ(std::weak_ptr<dan::net::Conn>& pstConn, std::unique_ptr<google::
                 pst->Server_AddProxy(p->nodeid());
                 pst->Tie(p->nodeid());
                 pst->Server_AppendCfgLog(pst->Addr(), p->raftport(), p->nodeid());             // 广播配置给节点们
+                
                 pst->Server_BroadCastAppendEntries();
             }
 
@@ -178,10 +192,10 @@ void AppendEntriesQ(std::weak_ptr<dan::net::Conn>& pstConn, std::unique_ptr<goog
         // 2 处理心跳消息
         if(p->entries_size() == 0)
         {
-            printf("get heartbeat===>log term:%d prelog index:%d prelog term:%d\n", p->term(), p->prelogindex(), p->prelogterm());
+            printf("get heartbeat===>log term:%d prelog index:%d prelog term:%d leader commitindex:%d\n", p->term(), p->prelogindex(), p->prelogterm(), p->leadercommit());
             //TODO 刷新过期时间
 
-            pst->Server_FreshTime(std::move(std::string("follower")));
+            pst->Server_FreshTime(FollowerHeartbeatTimer);
             stMsg.set_success(true);
             stMsg.set_isheartbeat(true);
             goto sendreponse;
@@ -207,14 +221,14 @@ void AppendEntriesQ(std::weak_ptr<dan::net::Conn>& pstConn, std::unique_ptr<goog
                 break;
             }
         }
-         printf("---------------6\n"); 
+        printf("---------------6\n"); 
           
         // 4. 干掉冲突之后添加日志
         for(; i < p->entries_size(); ++i)
         {
             if(p->entries(i).type() == ::api::entry::CFGADD ||p->entries(i).type() == ::api::entry::CFGREM) 
             {
-                printf("get cfg===>log term:%d prelog index:%d prelog term:%d\n", p->term(), p->prelogindex(), p->prelogterm());
+                printf("get cfg===>log term:%d prelog index:%d prelog term:%d leader commitindex:%d\n", p->term(), p->prelogindex(), p->prelogterm(), p->leadercommit());
                 pst->Server_AppendCfgLog(p->entries(i).host(), p->entries(i).port(), p->entries(i).nodeid());
             }
             else
@@ -223,21 +237,24 @@ void AppendEntriesQ(std::weak_ptr<dan::net::Conn>& pstConn, std::unique_ptr<goog
             }
         }
 
-
-        // 5. 更新commit 索引
-        if(pst->Server_CommitIndex() < p->leadercommit())
-        {
-            printf("---------------8\n"); 
-            
-            uint32_t dwLastNewIndex = p->prelogindex() + p->entries_size();
-            pst->Server_SetCommitIndex(std::min(p->leadercommit(), dwLastNewIndex));
-            // 应用日志项
-        }
-
         stMsg.set_success(true);
 
 
 sendreponse:
+
+        if(pst->Server_CommitIndex() < p->leadercommit())
+        {
+            //TODO 应用日志项
+           // printf("follower try apply log to FSM\n");
+
+            
+            uint32_t dwLastNewIndex = p->prelogindex() + p->entries_size();
+            pst->Server_SetCommitIndex(std::min(p->leadercommit(), dwLastNewIndex));
+            printf("set follower===>update to commit index:%d\n", pst->Server_CommitIndex());
+
+      //      pst->Server_TryApplyLogToFSM();
+        }
+
         stMsg.set_term(pst->Server_CurrentTerm());
         ::gettimeofday(&tv, NULL);
         printf("mod use:%ld us\n", (tv.tv_sec*1000000 + tv.tv_usec) - ulOldTime); 
@@ -269,6 +286,8 @@ void AppendEntriesR(std::weak_ptr<dan::net::Conn>& pstConn, std::unique_ptr<goog
         }
 
 
+
+
         if(p->success() != true)
         {
             // appendentries失败 减少nextindex重试
@@ -285,12 +304,19 @@ void AppendEntriesR(std::weak_ptr<dan::net::Conn>& pstConn, std::unique_ptr<goog
                 pst->Proxy_IncrNextIndex();
             }
         }
-        //更新
-        bool bResult = pst->Server_ChangeCommitIndex();
+
+        // TODO 处理之前的！ 如果leader的上次的commit index > apply index 就应用这个日志到状态机然后回复客户端(因为本次)
+
+        // TODO 本次的commit index是否要更新
+        bool bResult = pst->Server_ChangeCommitIndex();         // 只是follower的copy情况
         if(bResult == true)
         {
+
             //1 已经复制给多数的节点(安全复制) 应用这个日志到本机的状态机(比如配置就新建一个conn, 比如逻辑协议就处理)
-            printf("leader apply log to FSM\n");
+           // printf("leader apply log to FSM\n");
+
+            //2 回复给客户端
+           // printf("exec this log and reply to the client if the log is an request\n")
         }
         else
         {

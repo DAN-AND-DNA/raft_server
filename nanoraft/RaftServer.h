@@ -58,6 +58,7 @@ class RaftServer: public std::enable_shared_from_this<RaftServer>
 public:
     RaftServer(dan::eventloop::EventLoop* pstEventLoop) noexcept;
     RaftServer(dan::eventloop::EventLoop* pstEventLoop, const char* szAddress, int iPort) noexcept;
+    
     ~RaftServer() noexcept;
 
     std::weak_ptr<RaftProxy> GetProxyByID(uint32_t dwID);
@@ -92,8 +93,11 @@ public:
     void AppendCfgLog(std::string strHost, int iRaftPort, int iNodeID);         // 添加cfg日志
     std::string LeaderHost();
     void EntryByIndex(uint32_t dwIndex, api::entry* pstEntry); 
-    void FreshTime(std::string& strRole);
-    bool ChangeCommitIndex();                                                   
+    void FreshTime(const int iTimer);
+    bool ChangeCommitIndex(); 
+    bool TryApplyLogToFSM();
+
+    void LoadEntries();
 private:
     void TcpAcceptCallback();                                                   // TCP accpet
     void TcpSendAppendEntries();
@@ -122,7 +126,7 @@ private:
     std::unique_ptr<::leveldb::DB>                  m_pstEntriesDB_;            // 日志项db
     uint32_t                                        m_pstCfgLogIndex_;          // 集群配置改变的索引
 
-    std::map<std::string, std::shared_ptr<dan::timer::Timer>>    m_stTimers_;    //
+    std::map<int, std::shared_ptr<dan::timer::Timer>>    m_stTimers_;    //
 
 
 //    uint32_t                                        m_HeartbeatTimeout_         // 心跳过期时间

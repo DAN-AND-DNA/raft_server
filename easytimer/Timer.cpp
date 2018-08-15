@@ -32,7 +32,11 @@ namespace dan
 namespace timer
 {
 
-Timer::Timer(uint64_t ulExpireTime, dan::eventloop::EventLoop* pstEventLoop, std::shared_ptr<dan::nanoraft::RaftServer>& pstServer, bool bIsLeader):
+const int Timer::FollowerHeartbeatTimer = 0;
+const int Timer::FollowerApplyLogTimer = 1;
+const int Timer::LeaderHeartbeatTimer = 2;
+
+Timer::Timer(uint64_t ulExpireTime, dan::eventloop::EventLoop* pstEventLoop, std::shared_ptr<dan::nanoraft::RaftServer>& pstServer, const int iTimerType):
     m_bIsRun_(false),
     m_bIsInit_(true),
     m_iFd_(::timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC)),
@@ -46,7 +50,7 @@ Timer::Timer(uint64_t ulExpireTime, dan::eventloop::EventLoop* pstEventLoop, std
             return;
         }
         
-        if(bIsLeader == true)
+        if(iTimerType == LeaderHeartbeatTimer)
         {
             // leader  发送心跳包
             ::bzero(m_pstTimerSpec_, sizeof (struct ::itimerspec));
@@ -65,7 +69,7 @@ Timer::Timer(uint64_t ulExpireTime, dan::eventloop::EventLoop* pstEventLoop, std
                 m_pstChannel_->EnableRead(); 
             }
         }
-        else if(bIsLeader == false)
+        else if(iTimerType == FollowerHeartbeatTimer)
         {
              // follower  判读是否应该继续选举
             ::bzero(m_pstTimerSpec_, sizeof (struct ::itimerspec));
@@ -84,8 +88,24 @@ Timer::Timer(uint64_t ulExpireTime, dan::eventloop::EventLoop* pstEventLoop, std
                 m_pstChannel_->EnableRead(); 
             }
         }
+        else if(iTimerType == FollowerApplyLogTimer)
+        {
+            ::bzero(m_pstTimerSpec_, sizeof (struct ::itimerspec));
+            m_pstTimerSpec_->it_value.tv_sec = ulExpireTime;
+            m_pstTimerSpec_->it_interval.tv_sec = ulExpireTime;             // 触发一次
 
-
+            if(::timerfd_settime(m_iFd_, 0, m_pstTimerSpec_, nullptr) == -1)
+            {
+                printf("set error:%s\n", strerror(errno));
+            }
+            else
+            {
+                // 处理服务器 过期 和 更新 
+                m_pstChannel_->SetReadCallback(std::bind(&Timer::ApplyLogCallback, this));
+                m_pstChannel_->DisableWrite();          //FIXME  只读不写
+                m_pstChannel_->EnableRead(); 
+            }
+        }
     }
 
 Timer::~Timer()
@@ -128,7 +148,6 @@ void Timer::SendAppendEntriesCallback()
         uint64_t i = 0;
         ::read(m_iFd_, &i , sizeof(uint64_t));
         
-        printf("leader send appendentries\n");
         pstServer->BroadCastAppendEntries();
     }
 }
@@ -144,6 +163,18 @@ void Timer::HeartBeatTimeoutCallback()
         pstServer->BecomeCandidate();
         // TODO 广播投票消息
         pstServer->BroadCastRequestVote();
+    }
+}
+
+void Timer::ApplyLogCallback()
+{
+    if(auto pstServer = m_pstServer_.lock())
+    {
+        uint64_t i = 0;
+        ::read(m_iFd_, &i, sizeof(uint64_t));
+
+
+        printf("follower try apply log to FSM\n");
     }
 }
 

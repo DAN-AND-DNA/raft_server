@@ -20,13 +20,15 @@ class RedisChannel;
 class EventLoop;
 }
 
+
+
 namespace timer
 {
 
 class Timer : public std::enable_shared_from_this<Timer>
 {
 public:
-    Timer(uint64_t ulExpireTime, dan::eventloop::EventLoop* pstEventLoop, std::shared_ptr<dan::nanoraft::RaftServer>& pstServer, bool bIsLeader = true);
+    Timer(uint64_t ulExpireTime, dan::eventloop::EventLoop* pstEventLoop, std::shared_ptr<dan::nanoraft::RaftServer>& pstServer, const int iTimerType);
 
     ~Timer();
 
@@ -36,10 +38,15 @@ public:
 
     bool IsRun(){return m_bIsRun_;}
     void FreshTime(uint64_t ulExpireTime);
+    
+    static const int FollowerHeartbeatTimer;
+    static const int FollowerApplyLogTimer;
+    static const int LeaderHeartbeatTimer;
 private:    
     // 定时器触发回调
     void SendAppendEntriesCallback();
     void HeartBeatTimeoutCallback();
+    void ApplyLogCallback();
 private:
     bool                                            m_bIsRun_;
     bool                                            m_bIsInit_;

@@ -12,6 +12,7 @@
 
 #include <raft_server/protocol/api.pb.h>
 #include <google/protobuf/message.h>
+#include <google/protobuf/text_format.h>
 
 #include <arpa/inet.h>
 #include <errno.h>
@@ -30,12 +31,12 @@ public:
         std::istringstream is1(a.ToString());
         std::istringstream is2(b.ToString());
 
-        printf("-----------------\n");
+ //       printf("-----------------\n");
         is1 >> iIndex1;
         is2 >> iIndex2;
 
 
-        printf("i1:%d  i2:%d\n", iIndex1, iIndex2);
+  //      printf("i1:%d  i2:%d\n", iIndex1, iIndex2);
         if(iIndex1 < iIndex2)
             return -1;
         if(iIndex1 > iIndex2)
@@ -224,8 +225,8 @@ void RaftServer::Run()
     std::shared_ptr<dan::nanoraft::RaftServer> pst = shared_from_this();
     
     // leader定时器
-    m_stTimers_["leader"] = std::move(std::shared_ptr<dan::timer::Timer>(new dan::timer::Timer(10, m_pstEventLoop_, pst, true)));
-    m_stTimers_["leader"]->Init();
+    m_stTimers_[dan::timer::Timer::LeaderHeartbeatTimer] = std::move(std::shared_ptr<dan::timer::Timer>(new dan::timer::Timer(10, m_pstEventLoop_, pst, dan::timer::Timer::LeaderHeartbeatTimer)));
+    m_stTimers_[dan::timer::Timer::LeaderHeartbeatTimer]->Init();
 
     m_pstServerChannel_->SetReadCallback(std::bind(&RaftServer::TcpAcceptCallback, this));
     m_pstServerChannel_->EnableRead();
@@ -243,9 +244,15 @@ void RaftServer::ConnectToPeer(const char* szAddress, int iPort, int iNodeID, in
     pstConn->SetAddr(szAddress);
 
 
-    // follower定时器
-    m_stTimers_["follower"] = std::move(std::shared_ptr<dan::timer::Timer>(new dan::timer::Timer(21, m_pstEventLoop_, pst, false)));
-    m_stTimers_["follower"]->Init();
+    //1 follower 心跳定时器
+    m_stTimers_[dan::timer::Timer::FollowerHeartbeatTimer] = std::move(std::shared_ptr<dan::timer::Timer>(new dan::timer::Timer(21, m_pstEventLoop_, pst, dan::timer::Timer::FollowerHeartbeatTimer)));
+    m_stTimers_[dan::timer::Timer::FollowerHeartbeatTimer]->Init();
+/*
+    //2 follower 日志定时器
+    m_stTimers_[dan::timer::Timer::FollowerApplyLogTimer] = std::move(std::shared_ptr<dan::timer::Timer>(new dan::timer::Timer(3, m_pstEventLoop_, pst, dan::timer::Timer::FollowerApplyLogTimer)));
+    m_stTimers_[dan::timer::Timer::FollowerApplyLogTimer]->Init();
+
+*/
 
     m_stConns_[pstConn->Fd()] = pstConn;
     m_pstEventLoop_->Loop();
@@ -430,17 +437,17 @@ void RaftServer::EntryByIndex(uint32_t dwIndex, api::entry* pstEntry)
 }
 
 
-void RaftServer::FreshTime(std::string& strRole)
+void RaftServer::FreshTime(const int iTimer)
 {
-    if(m_stTimers_[strRole])
+    if(m_stTimers_[iTimer])
     {
-        if(strRole == "follower" )
+        if(iTimer == dan::timer::Timer::FollowerHeartbeatTimer)
         {
-            m_stTimers_[strRole]->FreshTime(10);
+            m_stTimers_[iTimer]->FreshTime(10);
         }
-        else if(strRole == "leader")
+        else if(iTimer == dan::timer::Timer::LeaderHeartbeatTimer)
         {
-            m_stTimers_[strRole]->FreshTime(20);
+            m_stTimers_[iTimer]->FreshTime(20);
         }
     }
 }
@@ -465,8 +472,67 @@ bool RaftServer::ChangeCommitIndex()
         m_dwCommitIndex_++;
         return true;
     }
+    return false;
+}
+
+bool RaftServer::TryApplyLogToFSM()
+{
+    if(m_dwLastApplied_ > m_dwCommitIndex_)
+    {
+        // 应用日志到FSM
+        if(m_stEntries_.empty() || m_stEntries_[m_dwLastApplied_] == nullptr)
+        {
+            return false;
+        }
+
+        if(m_stEntries_[m_dwLastApplied_]->type() == ::api::entry::CFGADD)
+        {
+            //配置变化更新连接信息
+
+        }
+        m_dwLastApplied_++;
+        return true;
+    }
 
     return false;
+}
+
+void RaftServer::LoadEntries()
+{
+    if(!m_stEntries_.empty())
+    {
+        m_stEntries_.clear();
+    }
+
+
+
+    leveldb::Iterator* it = m_pstEntriesDB_->NewIterator(leveldb::ReadOptions());
+    printf("start load...\n");               
+    for(it->SeekToFirst(); it->Valid(); it->Next())
+    {
+        std::unique_ptr<::api::entry> pstEntry(new ::api::entry());
+        pstEntry->ParseFromArray(it->value().data(), 128);
+        std::string s;
+
+        google::protobuf::TextFormat::PrintToString(*pstEntry, &s);
+        printf("%s\n", s.c_str());
+
+        if(pstEntry->type() == ::api::entry::CFGADD)
+        {
+            AddProxy(pstEntry->nodeid());
+        }
+        m_stEntries_.push_back(std::move(pstEntry));
+
+    }
+    
+    if(!it->status().ok())
+    {
+        printf("RaftServer::LoadEntries error:%s\n", it->status().ToString().c_str()); 
+        delete it;
+        exit(1);
+    }
+    delete it;
+    printf("load done\n");
 }
 
 
