@@ -305,7 +305,8 @@ void AppendEntriesR(std::weak_ptr<dan::net::Conn>& pstConn, std::unique_ptr<goog
             }
         }
 
-        // TODO 处理之前的！ 如果leader的上次的commit index > apply index 就应用这个日志到状态机然后回复客户端(因为本次)
+        // TODO 处理之前的！ 如果leader的上次的commit index > apply index 就应用这个日志到状态机然后回复客户端
+        // (因为到达本次就可以保证之前的commit index 已经被大家接受了,并应用到各自的FSM)
 
         // TODO 本次的commit index是否要更新
         bool bResult = pst->Server_ChangeCommitIndex();         // 只是follower的copy情况
